@@ -6,6 +6,7 @@ import {
   allTogether,
   isAtHome,
   isoWeekday,
+  madridInstant,
   todayInMadrid,
   weekDates,
 } from '../js/lunch.js';
@@ -61,4 +62,9 @@ test('Tots junts només si tots dinen a casa', () => {
   assert.equal(allTogether(['a', 'b'], '2026-11-04', weekly, []), true);
   assert.equal(allTogether(['a', 'b'], '2026-11-11', weekly, []), false);
   assert.equal(allTogether([], '2026-11-04', weekly, []), false);
+});
+
+test('les hores de Madrid es converteixen amb el seu horari', () => {
+  assert.equal(madridInstant('2026-11-04', '09:30'), '2026-11-04T08:30:00.000Z');
+  assert.equal(madridInstant('2026-07-01', '09:30'), '2026-07-01T07:30:00.000Z');
 });

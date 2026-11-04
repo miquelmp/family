@@ -11,5 +11,7 @@ trap 'dropdb --if-exists "$db"; psql -q -d postgres -c "drop role if exists anon
 
 psql -q -v ON_ERROR_STOP=1 -d postgres -c "drop role if exists anon, authenticated, service_role"
 psql -q -v ON_ERROR_STOP=1 -d "$db" -f tests/rls/setup.sql
-psql -q -v ON_ERROR_STOP=1 -d "$db" -f supabase/migrations/001_family_schema.sql
+for migration in supabase/migrations/*.sql; do
+  psql -q -v ON_ERROR_STOP=1 -d "$db" -f "$migration"
+done
 psql -q -v ON_ERROR_STOP=1 -d "$db" -f tests/rls/checks.sql

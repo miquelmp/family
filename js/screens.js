@@ -1,5 +1,16 @@
 // Pantalles de l'app. Cada funció retorna HTML; els textos variables passen per escapeHtml.
-import { allTogether, isAtHome, isoWeekday, weekDates } from './lunch.js';
+import {
+  eventDate,
+  eventTime,
+  eventsOn,
+  newEventLink,
+  nextEvent,
+  pendingTasks,
+  toBuy,
+  usualByCategory,
+  visibleTasks,
+} from './household.js';
+import { addDays, allTogether, isAtHome, isoWeekday, weekDates } from './lunch.js';
 
 export function escapeHtml(value) {
   return String(value).replace(
@@ -18,6 +29,7 @@ const ICONS = {
   casa: '<path d="M3 11l9-7 9 7"></path><path d="M5 10v10h14V10"></path><path d="M10 20v-6h4v6"></path>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"></path>',
   share: '<path d="M21 11.5a8.5 8.5 0 0 1-12.6 7.4L3 21l2.1-5.3A8.5 8.5 0 1 1 21 11.5z"></path>',
+  cloud: '<path d="M7 19h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 10.5 4.3 4.3 0 0 0 7 19z"></path>',
 };
 
 const TABS = [
@@ -26,18 +38,14 @@ const TABS = [
   { id: 'casa', label: 'Casa' },
 ];
 
-const WEEKDAY_SHORT = ['Dl', 'Dt', 'Dc', 'Dj', 'Dv', 'Ds', 'Dg'];
+const WEEKDAYS = ['Dl', 'Dt', 'Dc', 'Dj', 'Dv', 'Ds', 'Dg'];
 
-function formatToday(isoDate) {
-  const date = new Date(`${isoDate}T12:00:00Z`);
-  const weekday = new Intl.DateTimeFormat('ca', { weekday: 'long', timeZone: 'UTC' }).format(date);
-  const day = new Intl.DateTimeFormat('ca', {
-    day: 'numeric',
-    month: 'long',
-    timeZone: 'UTC',
-  }).format(date);
-  return { weekday: weekday[0].toUpperCase() + weekday.slice(1), day };
-}
+const formatDate = (isoDate, options) =>
+  new Intl.DateTimeFormat('ca', { ...options, timeZone: 'UTC' }).format(
+    new Date(`${isoDate}T12:00:00Z`),
+  );
+
+const shortDate = (isoDate) => formatDate(isoDate, { day: 'numeric', month: 'short' });
 
 function avatar(member, { size = 'md', present = true } = {}) {
   const label = escapeHtml(member.short_label);
@@ -48,22 +56,120 @@ function avatar(member, { size = 'md', present = true } = {}) {
   return `<span class="avatar avatar--${size}" style="background:${escapeHtml(member.color)}" title="${name}">${label}</span>`;
 }
 
-function shell(activeTab, content, { banner = '' } = {}) {
+const dishOn = (state, date) =>
+  state.menus.find((row) => row.lunch_date === date)?.dish ?? '';
+
+function shell(state, activeTab, content) {
   const tabs = TABS.map(
     (tab) => `
       <a class="tab" href="#${tab.id}" ${tab.id === activeTab ? 'aria-current="page"' : ''}>
         ${icon(ICONS[tab.id])}${tab.label}
       </a>`,
   ).join('');
+  const banner = state.offline
+    ? '<p class="banner">Sense connexió: últimes dades desades. Per fer canvis cal connexió.</p>'
+    : state.demo
+      ? '<p class="banner">Mode demostració: dades inventades que no es desen.</p>'
+      : '';
+  const notice = state.notice ? `<p class="notice" role="status">${escapeHtml(state.notice)}</p>` : '';
   return `
     <div class="screen">
       ${banner}
       <main class="content">${content}</main>
+      ${notice}
       <nav class="tabs" aria-label="Navegació">${tabs}</nav>
+    </div>
+    ${sheet(state)}`;
+}
+
+function sheet(state) {
+  if (!state.sheet) return '';
+  if (state.sheet.type === 'menu') {
+    const { date } = state.sheet;
+    return `
+      <div class="sheet" role="dialog" aria-modal="true" aria-label="Menú del dia">
+        <form class="sheet__panel" data-form="menu" data-date="${date}">
+          <h2>Menú del ${escapeHtml(shortDate(date))}</h2>
+          <label class="field">Plat
+            <input name="dish" value="${escapeHtml(dishOn(state, date))}" maxlength="80" autocomplete="off">
+          </label>
+          <div class="sheet__actions">
+            <button type="button" class="secondary" data-action="close-sheet">Cancel·la</button>
+            <button class="primary">Desa</button>
+          </div>
+        </form>
+      </div>`;
+  }
+  const options = state.members
+    .map(
+      (member) =>
+        `<option value="${escapeHtml(member.id)}">${escapeHtml(member.display_name)} (${escapeHtml(member.short_label)})</option>`,
+    )
+    .join('');
+  return `
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="Nova tasca">
+      <form class="sheet__panel" data-form="task">
+        <h2>Nova tasca</h2>
+        <label class="field">Què cal fer?
+          <input name="title" required maxlength="120" autocomplete="off">
+        </label>
+        <label class="field">Responsable
+          <select name="assignee">${options}</select>
+        </label>
+        <label class="field">Data (opcional)
+          <input name="due" type="date">
+        </label>
+        <div class="sheet__actions">
+          <button type="button" class="secondary" data-action="close-sheet">Cancel·la</button>
+          <button class="primary">Afegeix</button>
+        </div>
+      </form>
     </div>`;
 }
 
-const DEMO_BANNER = '<p class="banner">Mode demostració: dades inventades que no es desen.</p>';
+function weatherCard(state) {
+  const { weather } = state;
+  const source = '<a href="https://open-meteo.com">Weather data by Open-Meteo.com</a>';
+  if (!weather) {
+    return `
+      <section class="card card--weather" aria-label="Meteo">
+        <p>Mostra el temps d'on ets, segons la ubicació del mòbil.</p>
+        <button class="secondary secondary--light" data-action="enable-weather">Activa la meteo</button>
+        <div class="weather__foot">${source}</div>
+      </section>`;
+  }
+  if (weather.failed) {
+    return `
+      <section class="card card--weather" aria-label="Meteo">
+        <p>${escapeHtml(weather.failed)}</p>
+        <button class="secondary secondary--light" data-action="enable-weather">Torna-ho a provar</button>
+        <div class="weather__foot">${source}</div>
+      </section>`;
+  }
+  return `
+    <section class="card card--weather" aria-label="Meteo">
+      <div class="weather__top">
+        <div class="weather__now">
+          ${icon(ICONS.cloud, 42)}
+          <div>
+            <b>${weather.temperature}°</b>
+            <span>${escapeHtml(weather.label)}</span>
+          </div>
+        </div>
+        <p class="weather__range">Màx. ${weather.max}°<br>Mín. ${weather.min}°</p>
+      </div>
+      <div class="weather__foot">
+        <span>${weather.rainAt ? `Pluja cap a les ${escapeHtml(weather.rainAt)}` : 'Sense pluja prevista'}</span>
+        ${source}
+      </div>
+    </section>`;
+}
+
+function lunchSummary(count, total) {
+  if (count === 0) return 'Ningú a taula';
+  if (count === total) return 'Tots junts';
+  return count === 1 ? 'Una persona a taula' : `${count} persones a taula`;
+}
 
 function lunchButtons(state, date) {
   return state.members
@@ -73,56 +179,49 @@ function lunchButtons(state, date) {
       return `
         <button class="lunch-toggle ${atHome ? '' : 'lunch-toggle--away'}" ${style}
           aria-pressed="${atHome}" data-action="toggle-lunch"
-          data-member="${escapeHtml(member.id)}" data-date="${date}">
+          data-member="${escapeHtml(member.id)}" data-date="${date}" data-next="${!atHome}">
           ${escapeHtml(member.display_name)}
         </button>`;
     })
     .join('');
 }
 
-function lunchSummary(count, total) {
-  if (count === 0) return 'Ningú a taula';
-  if (count === total) return 'Tots junts';
-  return count === 1 ? 'Una persona a taula' : `${count} persones a taula`;
-}
-
-export function todayScreen(state) {
-  const { today, members, weeklyLunches, overrides } = state;
-  const { weekday, day } = formatToday(today);
-  const byId = Object.fromEntries(members.map((member) => [member.id, member]));
-  const atHomeCount = members.filter((member) =>
-    isAtHome(member.id, today, weeklyLunches, overrides),
-  ).length;
-
-  const agenda = state.agenda
+function agendaRows(events) {
+  return events
     .map(
       (event) => `
         <li class="row">
-          <span class="row__time">${escapeHtml(event.time)}</span>
-          <span class="row__main">
-            <strong>${escapeHtml(event.title)}</strong>
-            <small>${escapeHtml(event.note)}</small>
-          </span>
-          ${avatar(byId[event.memberId], { size: 'sm' })}
+          <span class="row__time ${event.all_day ? 'row__time--wide' : ''}">${escapeHtml(eventTime(event))}</span>
+          <span class="row__main"><strong>${escapeHtml(event.title)}</strong></span>
         </li>`,
     )
     .join('');
+}
 
-  const toBuy = state.shopping.filter((item) => item.onList);
-  const pending = state.tasks.filter((task) => !task.done);
+export function todayScreen(state) {
+  const { today, members, weeklyLunches, overrides, agenda } = state;
+  const atHomeCount = members.filter((member) =>
+    isAtHome(member.id, today, weeklyLunches, overrides),
+  ).length;
+  const weekday = formatDate(today, { weekday: 'long' });
+  const events = eventsOn(agenda, today);
+  const dish = dishOn(state, today);
 
   return shell(
+    state,
     'avui',
     `
     <header class="header">
       <div>
-        <h1>${escapeHtml(weekday)}</h1>
-        <p>${escapeHtml(day)}</p>
+        <h1>${escapeHtml(weekday[0].toUpperCase() + weekday.slice(1))}</h1>
+        <p>${escapeHtml(formatDate(today, { day: 'numeric', month: 'long' }))}</p>
       </div>
       <div class="avatars" aria-label="Membres de la família">
         ${members.map((member) => avatar(member)).join('')}
       </div>
     </header>
+
+    ${weatherCard(state)}
 
     <section class="card card--lunch" aria-label="Dinar d'avui">
       <div class="card__top">
@@ -130,44 +229,66 @@ export function todayScreen(state) {
           <p class="eyebrow">Dinar d'avui</p>
           <h2>${lunchSummary(atHomeCount, members.length)}</h2>
         </div>
-        <p class="dish">${escapeHtml(state.menusByWeekday[isoWeekday(today)])}</p>
+        <button class="dish" data-action="edit-menu" data-date="${today}">
+          ${escapeHtml(dish || 'Afegeix el menú')}
+        </button>
       </div>
       <div class="lunch-grid">${lunchButtons(state, today)}</div>
     </section>
 
     <section class="card" aria-label="Agenda d'avui">
       <h2 class="card__title">Agenda d'avui</h2>
-      <ul class="list">${agenda}</ul>
+      ${events.length ? `<ul class="list">${agendaRows(events)}</ul>` : '<p class="empty">Avui no hi ha res a l\'agenda.</p>'}
     </section>
 
     <div class="tiles">
       <a class="tile tile--blue" href="#casa">
-        <b>${toBuy.length}</b><span>A la compra</span>
+        <b>${toBuy(state.shopping).length}</b><span>A la compra</span>
       </a>
       <a class="tile tile--lilac" href="#casa">
-        <b>${pending.length}</b><span>Tasques pendents</span>
+        <b>${pendingTasks(state.tasks).length}</b><span>Tasques pendents</span>
       </a>
     </div>`,
-    { banner: DEMO_BANNER },
   );
 }
 
+function nextEventCard(state) {
+  const event = nextEvent(state.agenda, state.now);
+  const date = event && eventDate(event);
+  return `
+    <section class="card card--next" aria-label="Pròxima cita familiar">
+      ${
+        event
+          ? `<div>
+              <small>Pròxima cita familiar</small>
+              <strong>${escapeHtml(event.title)}</strong>
+              <small>${escapeHtml(shortDate(date))} · ${escapeHtml(eventTime(event))}</small>
+            </div>`
+          : '<div><small>Pròxima cita familiar</small><strong>Cap cita prevista</strong></div>'
+      }
+      <a class="link-button" href="${newEventLink(state.today)}" target="_blank" rel="noopener">Nova cita</a>
+    </section>`;
+}
+
 export function weekScreen(state) {
-  const { today, members, weeklyLunches, overrides } = state;
-  const dates = weekDates(today);
+  const { today, members, weeklyLunches, overrides, weekOffset } = state;
+  const anchor = addDays(today, weekOffset * 7);
+  const dates = weekDates(anchor);
   const memberIds = members.map((member) => member.id);
 
   const rows = dates
     .map((date, index) => {
       const together = allTogether(memberIds, date, weeklyLunches, overrides);
-      const dish = escapeHtml(state.menusByWeekday[index + 1]);
+      const dish = dishOn(state, date);
+      const events = eventsOn(state.agenda, date);
       const people = members
         .map((member) => {
           const present = isAtHome(member.id, date, weeklyLunches, overrides);
           return `
             <button class="avatar-button" aria-pressed="${present}"
-              aria-label="${escapeHtml(member.display_name)}, ${date}"
-              data-action="toggle-lunch" data-member="${escapeHtml(member.id)}" data-date="${date}">
+              aria-label="${escapeHtml(member.display_name)} (${escapeHtml(member.short_label)}), ${date}"
+              data-action="toggle-lunch" data-member="${escapeHtml(member.id)}"
+              data-date="${date}" data-next="${!present}">
               ${avatar(member, { size: 'sm', present })}
             </button>`;
         })
@@ -175,12 +296,15 @@ export function weekScreen(state) {
       return `
         <li class="day ${date === today ? 'day--today' : ''}">
           <span class="day__date">
-            <small>${date === today ? 'Avui' : WEEKDAY_SHORT[index]}</small>
+            <small>${date === today ? 'Avui' : WEEKDAYS[index]}</small>
             <b>${Number(date.slice(8))}</b>
           </span>
           <span class="day__main">
             ${together ? '<strong class="together">Tots junts</strong>' : ''}
-            <span>${dish}</span>
+            <button class="dish-link" data-action="edit-menu" data-date="${date}">
+              ${escapeHtml(dish || 'Afegeix menú')}
+            </button>
+            ${events.map((event) => `<small>${escapeHtml(eventTime(event))} ${escapeHtml(event.title)}</small>`).join('')}
           </span>
           <span class="day__people">${people}</span>
         </li>`;
@@ -188,52 +312,130 @@ export function weekScreen(state) {
     .join('');
 
   return shell(
+    state,
     'setmana',
     `
     <header class="header">
       <div>
         <h1>Setmana</h1>
-        <p>Toca una persona per fer un canvi puntual</p>
+        <p>Del ${escapeHtml(shortDate(dates[0]))} al ${escapeHtml(shortDate(dates[6]))}</p>
       </div>
+      <a class="link-button link-button--light" href="#horari">Setmana tipus</a>
     </header>
     <section class="card" aria-label="Qui dina a casa">
-      <h2 class="card__title">Qui dina a casa</h2>
+      <div class="card__heading">
+        <h2 class="card__title">Qui dina a casa</h2>
+        <div class="pager">
+          <button aria-label="Setmana anterior" data-action="change-week" data-delta="-1"
+            ${weekOffset === 0 ? 'disabled' : ''}>&lsaquo;</button>
+          <button aria-label="Setmana següent" data-action="change-week" data-delta="1">&rsaquo;</button>
+        </div>
+      </div>
+      <p class="hint">Toca una persona per a un canvi puntual.</p>
       <ol class="days">${rows}</ol>
-    </section>`,
-    { banner: DEMO_BANNER },
+    </section>
+    ${nextEventCard(state)}`,
+  );
+}
+
+export function scheduleScreen(state) {
+  const { today, members, weeklyLunches } = state;
+  const header = WEEKDAYS.map((day) => `<span class="grid__head">${day}</span>`).join('');
+  const rows = members
+    .map((member) => {
+      const cells = WEEKDAYS.map((day, index) => {
+        const weekday = index + 1;
+        const date = addDays(today, ((weekday - isoWeekday(today)) + 7) % 7);
+        const atHome = isAtHome(member.id, date, weeklyLunches, []);
+        const style = atHome ? `style="background:${escapeHtml(member.color)}"` : '';
+        return `
+          <button class="grid__cell ${atHome ? '' : 'grid__cell--away'}" ${style}
+            aria-pressed="${atHome}" aria-label="${escapeHtml(member.display_name)}, ${day}"
+            data-action="toggle-weekly" data-member="${escapeHtml(member.id)}"
+            data-weekday="${weekday}" data-next="${!atHome}">
+            ${atHome ? icon(ICONS.check, 16) : ''}
+          </button>`;
+      }).join('');
+      return `<span class="grid__name">${avatar(member, { size: 'sm' })}</span>${cells}`;
+    })
+    .join('');
+
+  return shell(
+    state,
+    'setmana',
+    `
+    <header class="header">
+      <div>
+        <h1>Setmana tipus</h1>
+        <p>Els canvis s'apliquen des d'avui.</p>
+      </div>
+    </header>
+    <section class="card" aria-label="Setmana tipus">
+      <div class="grid">
+        <span></span>${header}
+        ${rows}
+      </div>
+      <p class="hint">Els dies passats i els canvis puntuals no varien.</p>
+    </section>
+    <a class="link-button link-button--light" href="#setmana">Torna a Setmana</a>`,
   );
 }
 
 export function homeScreen(state) {
   const byId = Object.fromEntries(state.members.map((member) => [member.id, member]));
-  const toBuy = state.shopping.filter((item) => item.onList);
+  const list = toBuy(state.shopping);
 
-  const products = state.shopping
+  const listRows = list
     .map(
       (item) => `
-        <button class="product ${item.onList ? 'product--on' : ''}" aria-pressed="${item.onList}"
-          data-action="toggle-product" data-id="${escapeHtml(item.id)}">
-          ${escapeHtml(item.name)}
-        </button>`,
-    )
-    .join('');
-
-  const tasks = state.tasks
-    .map(
-      (task) => `
         <li class="row">
-          <button class="check ${task.done ? 'check--done' : ''}" aria-pressed="${task.done}"
-            aria-label="${task.done ? 'Desmarca' : 'Marca com a feta'}: ${escapeHtml(task.title)}"
-            data-action="toggle-task" data-id="${escapeHtml(task.id)}">
-            <span>${task.done ? icon(ICONS.check, 16) : ''}</span>
-          </button>
-          <span class="row__main ${task.done ? 'row__main--done' : ''}">${escapeHtml(task.title)}</span>
-          ${avatar(byId[task.memberId], { size: 'sm' })}
+          <button class="check" aria-label="Comprat: ${escapeHtml(item.name)}"
+            data-action="mark-bought" data-id="${escapeHtml(item.id)}"><span></span></button>
+          <span class="row__main">${escapeHtml(item.name)}</span>
         </li>`,
     )
     .join('');
 
+  const groups = usualByCategory(state.shopping)
+    .map(
+      ({ category, products }) => `
+        <h3 class="group">${escapeHtml(category)}</h3>
+        <div class="products">
+          ${products
+            .map(
+              (item) => `
+                <button class="product ${item.on_list ? 'product--on' : ''}" aria-pressed="${item.on_list}"
+                  data-action="toggle-product" data-id="${escapeHtml(item.id)}" data-next="${!item.on_list}">
+                  ${escapeHtml(item.name)}
+                </button>`,
+            )
+            .join('')}
+        </div>`,
+    )
+    .join('');
+
+  const tasks = visibleTasks(state.tasks, state.now)
+    .map((task) => {
+      const done = Boolean(task.done_at);
+      const assignee = byId[task.assignee_id];
+      return `
+        <li class="row">
+          <button class="check ${done ? 'check--done' : ''}" aria-pressed="${done}"
+            aria-label="${done ? 'Desmarca' : 'Marca com a feta'}: ${escapeHtml(task.title)}"
+            data-action="toggle-task" data-id="${escapeHtml(task.id)}" data-next="${!done}">
+            <span>${done ? icon(ICONS.check, 16) : ''}</span>
+          </button>
+          <span class="row__main ${done ? 'row__main--done' : ''}">
+            ${escapeHtml(task.title)}
+            ${task.due_date ? `<small>${escapeHtml(shortDate(task.due_date))}</small>` : ''}
+          </span>
+          ${assignee ? avatar(assignee, { size: 'sm' }) : ''}
+        </li>`;
+    })
+    .join('');
+
   return shell(
+    state,
     'casa',
     `
     <header class="header">
@@ -243,47 +445,38 @@ export function homeScreen(state) {
       </div>
     </header>
 
-    <section class="card" aria-label="Compra">
+    <section class="card" aria-label="Llista de la compra">
       <div class="card__heading">
-        <h2 class="card__title">S'ha acabat?</h2>
-        <small>${toBuy.length} a la llista</small>
+        <h2 class="card__title">A la llista</h2>
+        <small>${list.length} ${list.length === 1 ? 'producte' : 'productes'}</small>
       </div>
-      <div class="products">${products}</div>
-      <button class="primary" data-action="share-list">
+      ${list.length ? `<ul class="list">${listRows}</ul>` : '<p class="empty">No falta res.</p>'}
+      <form class="add" data-form="product">
+        <label class="visually-hidden" for="new-product">Producte nou</label>
+        <input id="new-product" name="name" placeholder="Afegeix un producte" maxlength="60" required autocomplete="off">
+        <button class="secondary">Afegeix</button>
+      </form>
+      <button class="primary" data-action="share-list" ${list.length ? '' : 'disabled'}>
         ${icon(ICONS.share, 20)} Comparteix al grup de WhatsApp
       </button>
     </section>
 
-    <section class="card" aria-label="Tasques">
-      <h2 class="card__title">Tasques</h2>
-      <ul class="list">${tasks}</ul>
-    </section>`,
-    { banner: DEMO_BANNER },
-  );
-}
+    <section class="card" aria-label="Productes habituals">
+      <h2 class="card__title">S'ha acabat?</h2>
+      ${groups}
+    </section>
 
-/** Pantalla d'un membre real mentre les funcions de la fase 2 no estan fetes. */
-export function memberHome({ members, me, today }) {
-  const { weekday, day } = formatToday(today);
-  return `
-    <div class="screen">
-      <main class="content">
-        <header class="header">
-          <div>
-            <h1>${escapeHtml(weekday)}</h1>
-            <p>${escapeHtml(day)}</p>
-          </div>
-          <div class="avatars" aria-label="Membres de la família">
-            ${members.map((member) => avatar(member)).join('')}
-          </div>
-        </header>
-        <section class="card card--message">
-          <h2>Hola, ${escapeHtml(me.display_name)}</h2>
-          <p>La sessió funciona. Les pantalles amb dades reals arribaran a la fase 2.</p>
-          <button class="secondary" data-action="sign-out">Tanca la sessió</button>
-        </section>
-      </main>
-    </div>`;
+    <section class="card" aria-label="Tasques">
+      <div class="card__heading">
+        <h2 class="card__title">Tasques</h2>
+        <button class="text-button" data-action="new-task">Nova tasca</button>
+      </div>
+      ${tasks ? `<ul class="list">${tasks}</ul>` : '<p class="empty">No hi ha tasques pendents.</p>'}
+    </section>
+
+    <button class="secondary" data-action="export-data">Exporta les dades</button>
+    ${state.demo ? '' : '<button class="text-button" data-action="sign-out">Tanca la sessió</button>'}`,
+  );
 }
 
 export function signInScreen() {
@@ -311,10 +504,4 @@ export function errorScreen(message) {
       <p>${escapeHtml(message)}</p>
       <button class="primary" data-action="reload">Torna-ho a provar</button>
     </div>`;
-}
-
-/** Text que s'enviarà al grup de WhatsApp. */
-export function shoppingMessage(items) {
-  const names = items.filter((item) => item.onList).map((item) => `- ${item.name}`);
-  return ['Llista de la compra:', ...names].join('\n');
 }

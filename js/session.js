@@ -22,7 +22,7 @@ export const isDemo = () => !config.supabaseUrl;
 
 let client = null;
 
-async function getClient() {
+export async function getClient() {
   if (client) return client;
   await loadScript(SUPABASE_SCRIPT);
   client = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
@@ -42,7 +42,7 @@ async function getClient() {
  * Retorna l'estat d'accés:
  * - signedOut: cal entrar
  * - notMember: té sessió però no és de la família
- * - member: pot fer servir l'app, amb members i user
+ * - member: pot fer servir l'app
  * - error: no s'ha pogut comprovar, amb message
  */
 export async function loadAccess() {
@@ -52,16 +52,16 @@ export async function loadAccess() {
     if (sessionError) throw sessionError;
     if (!data.session) return { status: 'signedOut' };
 
+    const email = data.session.user.email?.toLowerCase();
     const { data: members, error } = await supabase
       .from('members')
-      .select('id, email, display_name, short_label, color, sort_order')
+      .select('email')
       .order('sort_order');
     if (error) throw error;
 
-    const email = data.session.user.email?.toLowerCase();
-    const me = members.find((member) => member.email === email);
-    if (!me) return { status: 'notMember', email };
-    return { status: 'member', members, me };
+    return members.some((member) => member.email === email)
+      ? { status: 'member' }
+      : { status: 'notMember', email };
   } catch (error) {
     return { status: 'error', message: error.message };
   }

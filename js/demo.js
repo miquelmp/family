@@ -1,5 +1,6 @@
 // Dades inventades per al mode demostració. Aquest fitxer és públic:
 // no hi posis mai noms ni dades reals.
+import { addDays, madridInstant, weekDates } from './lunch.js';
 
 const everyWeekday = (memberId, days) =>
   days.map((weekday) => ({
@@ -9,7 +10,24 @@ const everyWeekday = (memberId, days) =>
     at_home: true,
   }));
 
-export const demo = {
+const product = (id, name, category, onList = false) => ({
+  id,
+  name,
+  category,
+  is_usual: true,
+  on_list: onList,
+});
+
+const DISHES = [
+  'Arròs amb verdures',
+  'Llenties',
+  'Crema de carbassa',
+  'Pasta al forn',
+  'Peix al forn',
+  'Paella',
+];
+
+export const demoData = (today) => ({
   members: [
     { id: 'p1', display_name: 'Persona 1', short_label: 'P1', color: '#1D4ED8' },
     { id: 'p2', display_name: 'Persona 2', short_label: 'P2', color: '#C2410C' },
@@ -22,31 +40,33 @@ export const demo = {
     ...everyWeekday('p3', [2, 3, 4, 6, 7]),
     ...everyWeekday('p4', [4, 5, 6, 7]),
   ],
-  menusByWeekday: {
-    1: 'Arròs amb verdures',
-    2: 'Llenties',
-    3: 'Crema de carbassa',
-    4: 'Pasta al forn',
-    5: 'Peix al forn',
-    6: 'Paella',
-    7: 'Dinar fora',
-  },
+  overrides: [],
+  menus: weekDates(today)
+    .slice(0, DISHES.length)
+    .map((lunch_date, index) => ({ lunch_date, dish: DISHES[index] })),
   agenda: [
-    { time: '09:30', title: 'Dentista', note: 'Persona 3, l\'acompanya Persona 1', memberId: 'p3' },
-    { time: '14:00', title: 'Dinar a casa', note: 'Cuina Persona 2', memberId: 'p2' },
-    { time: '18:15', title: 'Entrenament', note: 'Recull Persona 1 a les 19:30', memberId: 'p4' },
+    { uid: 'a1', title: 'Dentista', starts_at: madridInstant(today, '09:30') },
+    { uid: 'a2', title: 'Entrenament', starts_at: madridInstant(today, '18:15') },
+    { uid: 'a3', title: 'Dinar amb els avis', starts_at: madridInstant(addDays(today, 3), '13:30') },
   ],
   shopping: [
-    { id: 's1', name: 'Detergent', onList: true },
-    { id: 's2', name: 'Paper WC', onList: true },
-    { id: 's3', name: 'Begudes', onList: false },
-    { id: 's4', name: 'Llet', onList: true },
-    { id: 's5', name: 'Cafè', onList: false },
-    { id: 's6', name: 'Oli', onList: false },
+    product('s1', 'Detergent', 'Neteja', true),
+    product('s2', 'Paper higiènic', 'Paper', true),
+    product('s3', 'Tovallons', 'Paper'),
+    product('s4', 'Aigua', 'Begudes'),
+    product('s5', 'Llet', 'Begudes', true),
+    product('s6', 'Oli', 'Rebost'),
   ],
   tasks: [
-    { id: 't1', title: 'Posar la rentadora', memberId: 'p1', done: false },
-    { id: 't2', title: 'Treure les escombraries', memberId: 'p4', done: false },
-    { id: 't3', title: 'Parar taula', memberId: 'p3', done: true },
+    { id: 't1', title: 'Posar la rentadora', assignee_id: 'p1', due_date: today, done_at: null },
+    { id: 't2', title: 'Treure les escombraries', assignee_id: 'p4', due_date: null, done_at: null },
   ],
+});
+
+export const demoWeather = {
+  temperature: 17,
+  max: 20,
+  min: 11,
+  label: 'Ennuvolat a estones',
+  rainAt: '18:00',
 };

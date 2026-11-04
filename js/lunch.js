@@ -12,6 +12,19 @@ export function todayInMadrid(now = new Date()) {
   }).format(now);
 }
 
+/** Instant corresponent a una data i hora de Madrid, en format ISO. */
+export function madridInstant(isoDate, time) {
+  const utcGuess = new Date(`${isoDate}T${time}:00Z`);
+  const offset = new Intl.DateTimeFormat('en-US', {
+    timeZone: TIME_ZONE,
+    timeZoneName: 'longOffset',
+  })
+    .formatToParts(utcGuess)
+    .find((part) => part.type === 'timeZoneName')
+    .value.replace('GMT', '');
+  return new Date(`${isoDate}T${time}:00${offset || 'Z'}`).toISOString();
+}
+
 function toUtc(isoDate) {
   const [year, month, day] = isoDate.split('-').map(Number);
   return new Date(Date.UTC(year, month - 1, day));

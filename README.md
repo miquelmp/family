@@ -9,9 +9,10 @@ Aquest repositori és públic. **No hi posis mai noms reals, correus ni claus se
 
 ## Estat
 
-Fase 1: base de l'app. Sense configurar Supabase, funciona en mode demostració amb dades
-inventades que no es desen. Amb Supabase, l'entrada funciona, però les pantalles amb dades
-reals arriben a la fase 2.
+Sense configurar Supabase, l'app funciona en mode demostració amb dades inventades que no es desen.
+Amb Supabase, les pantalles treballen amb dades reals: dinars, setmana tipus, menú, compra, tasques,
+meteo i exportació. L'agenda es llegeix de la taula `agenda_events`, però encara falta la tasca
+programada que hi copia Google Calendar.
 
 ## Posada en marxa
 
@@ -19,7 +20,7 @@ reals arriben a la fase 2.
 
 A l'editor SQL de Supabase:
 
-1. Executa `supabase/migrations/001_family_schema.sql`.
+1. Executa, per ordre, els fitxers de `supabase/migrations/`.
 2. Copia `supabase/members.example.sql`, posa-hi les dades reals i executa-ho. No desis la còpia aquí.
 
 A **Project Settings > Data API > Exposed schemas**, afegeix `family`.
@@ -64,7 +65,7 @@ torna a configurar l'entrada i canvia `js/config.js`. Cada membre haurà de torn
 ## Proves
 
 ```sh
-node --test tests/*.test.mjs   # regles dels dinars
+node --test tests/*.test.mjs   # regles dels dinars, la compra, l'agenda i la meteo
 tests/rls/run.sh               # regles d'accés, amb un Postgres local
 node tests/e2e.mjs             # navegador, amb Playwright (vegeu el fitxer)
 ```
