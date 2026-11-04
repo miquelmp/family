@@ -483,7 +483,7 @@ export function signInScreen() {
   return `
     <div class="center">
       <h1>Family</h1>
-      <p>Entra una vegada amb el teu compte de Google. Aquest mòbil te'n recordarà.</p>
+      <p>Entra amb el teu compte de Google.</p>
       <button class="primary" data-action="sign-in">Entra amb Google</button>
     </div>`;
 }
