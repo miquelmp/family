@@ -291,7 +291,7 @@ ul, ol { list-style: none; }
 .primary { border: 0; background: var(--share); color: #FFFFFF; }
 .secondary { border: 2px solid var(--ink); background: transparent; }
 
-.card--message { display: flex; flex-direction: column; gap: 10px; }
+.card--stack { display: flex; flex-direction: column; gap: 10px; }
 
 .center {
   max-width: 420px;

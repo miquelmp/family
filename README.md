@@ -60,6 +60,18 @@ La funció `family-agenda-sync` copia els propers 60 dies del calendari Family.
 2. A **Edge Functions > Secrets**, crea `FAMILY_ICAL_URL` i `FAMILY_CRON_SECRET`.
 3. Executa una còpia de `supabase/agenda-sync.example.sql` amb el secret real.
 
+### 8. Avisos
+
+La funció `family-reminders` envia a les 8 h les cites i tasques del dia, i a les 20 h les cites de demà.
+
+1. Genera les claus a `tools/vapid.html`.
+2. Afegeix la clau pública a `js/config.js`, com a `vapidPublicKey`.
+3. Crea la funció `family-reminders` amb el codi de `supabase/functions/family-reminders/index.ts`
+   i desactiva la verificació de JWT.
+4. A **Edge Functions > Secrets**, crea `FAMILY_VAPID_PUBLIC_KEY`, `FAMILY_VAPID_PRIVATE_KEY`
+   i `FAMILY_VAPID_SUBJECT`, amb el format `mailto:el-teu-correu`.
+5. Executa una còpia de `supabase/reminders.example.sql` amb el secret real.
+
 ## Separació de simlabedu
 
 - Totes les taules van a l'esquema `family`, i cap a `public`.

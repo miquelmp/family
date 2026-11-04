@@ -5,4 +5,5 @@
 export const config = {
   supabaseUrl: 'https://lsiggkxtgrjeilfhyewe.supabase.co',
   supabaseAnonKey: 'sb_publishable_cvSlpcKD4k4OCG0-xHnPzA_zKc_uSmF',
+  vapidPublicKey: '',
 };

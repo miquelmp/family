@@ -57,6 +57,9 @@ export function createDemoStore(today) {
     async setTaskDone(id, done) {
       data.tasks.find((task) => task.id === id).done_at = done ? now() : null;
     },
+
+    savePush: async () => {},
+    removePush: async () => {},
   };
 }
 
@@ -150,6 +153,14 @@ export function createSupabaseStore(client) {
 
     async setTaskDone(id, done) {
       check(await table('tasks').update({ done_at: done ? now() : null }).eq('id', id));
+    },
+
+    async savePush(row) {
+      check(await table('push_subscriptions').upsert(row));
+    },
+
+    async removePush(endpoint) {
+      check(await table('push_subscriptions').delete().eq('endpoint', endpoint));
     },
   };
 }

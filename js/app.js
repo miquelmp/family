@@ -1,6 +1,13 @@
+import { config } from './config.js';
 import { demoWeather } from './demo.js';
 import { readWeather, shoppingMessage, weatherUrl } from './household.js';
 import { todayInMadrid } from './lunch.js';
+import {
+  currentSubscription,
+  pushSupported,
+  subscribeToPush,
+  subscriptionRow,
+} from './push.js';
 import {
   errorScreen,
   homeScreen,
@@ -37,7 +44,10 @@ const state = {
   shopping: [],
   tasks: [],
   weather: null,
+  email: null,
+  push: 'hidden',
   weekOffset: 0,
+  userAgent: navigator.userAgent,
   offline: false,
   notice: '',
   sheet: null,
@@ -164,6 +174,37 @@ async function shareList() {
   window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
 }
 
+async function loadPushState() {
+  if (state.demo || !config.vapidPublicKey) return;
+  if (!pushSupported()) {
+    state.push = 'unsupported';
+  } else if (Notification.permission === 'denied') {
+    state.push = 'blocked';
+  } else {
+    state.push = (await currentSubscription()) ? 'on' : 'off';
+  }
+  if (!isTyping()) render();
+}
+
+async function enablePush() {
+  const me = state.members.find((member) => member.email === state.email);
+  await change(async () => {
+    const subscription = await subscribeToPush(config.vapidPublicKey);
+    if (subscription) await store.savePush(subscriptionRow(subscription, me.id));
+  });
+  await loadPushState();
+}
+
+async function disablePush() {
+  await change(async () => {
+    const subscription = await currentSubscription();
+    if (!subscription) return;
+    await store.removePush(subscription.endpoint);
+    await subscription.unsubscribe();
+  });
+  await loadPushState();
+}
+
 function exportData() {
   const { members, weeklyLunches, overrides, menus, agenda, shopping, tasks } = state;
   const content = JSON.stringify(
@@ -208,6 +249,8 @@ const ACTIONS = {
     render();
   },
   'enable-weather': () => loadWeather({ ask: true }),
+  'enable-push': enablePush,
+  'disable-push': disablePush,
   'share-list': shareList,
   'export-data': exportData,
   'sign-in': signIn,
@@ -298,6 +341,7 @@ async function start() {
     return;
   }
 
+  state.email = access.email ?? null;
   try {
     const client = await getClient();
     store = createSupabaseStore(client);
@@ -308,6 +352,7 @@ async function start() {
   }
   await refresh();
   await loadWeather({ ask: false });
+  await loadPushState();
 }
 
 start().catch((error) => {

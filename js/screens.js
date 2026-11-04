@@ -381,6 +381,40 @@ export function scheduleScreen(state) {
   );
 }
 
+const SMARTTHINGS_ANDROID =
+  'intent://#Intent;package=com.samsung.android.oneconnect;'
+  + 'S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.samsung.android.oneconnect;end';
+const SMARTTHINGS_IOS = 'https://apps.apple.com/app/id1222822904';
+
+/** A Android obre l'app; a l'iPhone porta a la seva fitxa, que té el botó d'obrir. */
+export const smartThingsLink = (userAgent) =>
+  /iPhone|iPad|iPod/.test(userAgent) ? SMARTTHINGS_IOS : SMARTTHINGS_ANDROID;
+
+function pushCard(state) {
+  const messages = {
+    on: {
+      text: 'Reps avisos en aquest mòbil.',
+      button: '<button class="secondary" data-action="disable-push">Desactiva els avisos</button>',
+    },
+    off: {
+      text: 'Cites i tasques: a les 8 h les del dia, i a les 20 h les de demà.',
+      button: '<button class="primary" data-action="enable-push">Activa els avisos</button>',
+    },
+    blocked: { text: 'Els avisos estan bloquejats a la configuració del mòbil.' },
+    unsupported: {
+      text: 'Aquest mòbil no admet avisos. A l\'iPhone, primer afegeix l\'app a la pantalla d\'inici.',
+    },
+  };
+  const message = messages[state.push];
+  if (!message) return '';
+  return `
+    <section class="card card--stack" aria-label="Avisos">
+      <h2 class="card__title">Avisos</h2>
+      <p>${escapeHtml(message.text)}</p>
+      ${message.button ?? ''}
+    </section>`;
+}
+
 export function homeScreen(state) {
   const byId = Object.fromEntries(state.members.map((member) => [member.id, member]));
   const list = toBuy(state.shopping);
@@ -473,6 +507,13 @@ export function homeScreen(state) {
       </div>
       ${tasks ? `<ul class="list">${tasks}</ul>` : '<p class="empty">No hi ha tasques pendents.</p>'}
     </section>
+
+    <section class="card card--stack" aria-label="Electrodomèstics">
+      <h2 class="card__title">Electrodomèstics</h2>
+      <a class="link-button" href="${smartThingsLink(state.userAgent)}">Obre SmartThings</a>
+    </section>
+
+    ${pushCard(state)}
 
     <button class="secondary" data-action="export-data">Exporta les dades</button>
     ${state.demo ? '' : '<button class="text-button" data-action="sign-out">Tanca la sessió</button>'}`,

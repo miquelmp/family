@@ -102,6 +102,43 @@ begin
 end;
 $$;
 
+-- Cada membre només gestiona les seves subscripcions als avisos.
+insert into family.members (id, email, display_name, short_label, color, sort_order) values
+  ('00000000-0000-0000-0000-000000000002', 'segon@example.com', 'Segon', 'Se', '#C2410C', 2);
+
+do $$
+declare
+  own uuid;
+  visible bigint;
+begin
+  select id into own from family.members where email = 'membre@example.com';
+
+  perform set_config('request.jwt.claims', '{"email":"membre@example.com"}', true);
+  set local role authenticated;
+  execute format(
+    'insert into family.push_subscriptions (endpoint, member_id, p256dh, auth) values (%L, %L, %L, %L)',
+    'https://push.example.com/1', own, 'clau', 'auth');
+  reset role;
+
+  perform set_config('request.jwt.claims', '{"email":"segon@example.com"}', true);
+  set local role authenticated;
+  select count(*) into visible from family.push_subscriptions;
+  reset role;
+  assert visible = 0, 'Un membre no ha de veure les subscripcions dels altres';
+end;
+$$;
+
+select pg_temp.expect_denied(
+  'authenticated', '{"email":"membre@example.com"}',
+  $sql$insert into family.push_subscriptions (endpoint, member_id, p256dh, auth)
+       values ('https://push.example.com/2', '00000000-0000-0000-0000-000000000002', 'c', 'a')$sql$);
+select pg_temp.expect_denied(
+  'authenticated', '{"email":"alie@example.com"}',
+  $sql$insert into family.push_subscriptions (endpoint, member_id, p256dh, auth)
+       values ('https://push.example.com/3', '00000000-0000-0000-0000-000000000002', 'c', 'a')$sql$);
+select pg_temp.expect_denied(
+  'authenticated', '{"email":"membre@example.com"}', 'select * from family.sent_reminders');
+
 -- No es poden duplicar productes, ni canviant majúscules.
 do $$
 begin

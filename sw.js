@@ -1,6 +1,6 @@
 // Guarda els fitxers de l'app perquè s'obri sense connexió.
 // Augmenta VERSION quan afegeixis o treguis fitxers de SHELL.
-const VERSION = 'family-v5';
+const VERSION = 'family-v6';
 
 const SHELL = [
   './',
@@ -12,6 +12,7 @@ const SHELL = [
   'js/demo.js',
   'js/household.js',
   'js/lunch.js',
+  'js/push.js',
   'js/screens.js',
   'js/session.js',
   'js/store.js',
@@ -72,6 +73,23 @@ self.addEventListener('fetch', (event) => {
       const response = await fetch(request);
       if (response.ok) await cache.put(request, response.clone());
       return response;
+    }),
+  );
+});
+
+self.addEventListener('push', (event) => {
+  const { title = 'Family', body = '' } = event.data?.json() ?? {};
+  event.waitUntil(
+    self.registration.showNotification(title, { body, icon: 'icons/icon-192.png', lang: 'ca' }),
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      const [open] = windows;
+      return open ? open.focus() : self.clients.openWindow('./');
     }),
   );
 });

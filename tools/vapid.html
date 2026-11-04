@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ca">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Claus dels avisos</title>
+  <style>
+    body { max-width: 640px; margin: 0 auto; padding: 24px 16px; font: 16px/1.4 system-ui, sans-serif; }
+    code { display: block; padding: 10px; background: #eef1ea; overflow-wrap: anywhere; }
+    button { min-height: 48px; padding: 0 16px; font: inherit; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <h1>Claus dels avisos</h1>
+  <p>Les claus es generen en aquest navegador i no s'envien enlloc.</p>
+  <button id="generate">Genera les claus</button>
+  <div id="output" hidden>
+    <h2>Clau pública</h2>
+    <code id="public-key"></code>
+    <h2>Clau privada</h2>
+    <p>Desa-la només com a secret de Supabase. No la comparteixis.</p>
+    <code id="private-key"></code>
+  </div>
+  <script>
+    const base64Url = (bytes) =>
+      btoa(String.fromCharCode(...new Uint8Array(bytes)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+
+    document.querySelector('#generate').addEventListener('click', async () => {
+      const pair = await crypto.subtle.generateKey(
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        true,
+        ['sign', 'verify'],
+      );
+      const raw = await crypto.subtle.exportKey('raw', pair.publicKey);
+      const jwk = await crypto.subtle.exportKey('jwk', pair.privateKey);
+      document.querySelector('#public-key').textContent = base64Url(raw);
+      document.querySelector('#private-key').textContent = jwk.d;
+      document.querySelector('#output').hidden = false;
+    });
+  </script>
+</body>
+</html>

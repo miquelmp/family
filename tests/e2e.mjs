@@ -12,7 +12,7 @@ const SHOTS = process.env.SHOTS;
 const browser = await chromium.launch();
 
 // Les proves de demostració no han de dependre de la configuració publicada.
-const DEMO_CONFIG = "export const config = { supabaseUrl: '', supabaseAnonKey: '' };";
+const DEMO_CONFIG = "export const config = { supabaseUrl: '', supabaseAnonKey: '', vapidPublicKey: '' };";
 const useDemoConfig = (page) =>
   page.route('**/js/config.js', (route) =>
     route.fulfill({ contentType: 'text/javascript', body: DEMO_CONFIG }),
@@ -131,6 +131,7 @@ async function checkDemo(width) {
 const CONFIG = `export const config = {
   supabaseUrl: 'https://exemple.supabase.co',
   supabaseAnonKey: 'clau-publica',
+  vapidPublicKey: 'BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4',
 };`;
 
 // Simulador de Supabase en memòria, amb la forma de crides que fa l'app.
@@ -140,10 +141,12 @@ const fakeSupabase = (scenario) => `
     lunch_overrides: ['member_id', 'lunch_date'],
     weekly_lunches: ['member_id', 'weekday', 'valid_from'],
     menus: ['lunch_date'],
+    push_subscriptions: ['endpoint'],
   };
   const tables = window.tables = {
     members: scenario.members ?? [], weekly_lunches: [], lunch_overrides: [], menus: [],
     agenda_events: scenario.agenda ?? [], shopping_items: scenario.shopping ?? [], tasks: [],
+    push_subscriptions: [],
   };
   window.calls = [];
   const query = (name) => {
@@ -207,8 +210,9 @@ const fakeSupabase = (scenario) => `
     },
   };`;
 
-async function realMode(scenario, options) {
+async function realMode(scenario, options, prepare) {
   const { page, context, errors } = await newPage(390, options);
+  if (prepare) await prepare(page);
   await page.route('**/js/config.js', (route) =>
     route.fulfill({ contentType: 'text/javascript', body: CONFIG }),
   );
@@ -390,6 +394,87 @@ async function checkWeatherDenied() {
   await context.close();
 }
 
+// Simula el mòbil: un servei d'avisos que registra qui s'hi subscriu.
+const fakePush = (permission) => `
+  let current = null;
+  const pushManager = {
+    getSubscription: async () => current,
+    subscribe: async (options) => {
+      window.subscribeOptions = options;
+      current = {
+        endpoint: 'https://push.example.com/mobil',
+        toJSON: () => ({
+          endpoint: 'https://push.example.com/mobil',
+          keys: { p256dh: 'clau', auth: 'secret' },
+        }),
+        unsubscribe: async () => { current = null; },
+      };
+      return current;
+    },
+  };
+  window.PushManager = function PushManager() {};
+  window.Notification = { permission: '${permission}', requestPermission: async () => 'granted' };
+  Object.defineProperty(navigator, 'serviceWorker', {
+    value: {
+      ready: Promise.resolve({ pushManager }),
+      controller: null,
+      addEventListener() {},
+      register: async () => ({}),
+    },
+  });
+`;
+
+async function checkPush() {
+  const enter = async (permission) => {
+    const session_ = { session: session('una@example.com'), members };
+    const opened = await realMode(session_, undefined, (page) =>
+      page.addInitScript(fakePush(permission)),
+    );
+    await opened.page.waitForSelector('.tabs');
+    await opened.page.click('a[href="#casa"]');
+    await opened.page.waitForSelector('.products, .empty');
+    return opened;
+  };
+
+  {
+    const { page, context, errors } = await enter('default');
+    await page.getByRole('button', { name: 'Activa els avisos' }).click();
+    await page.getByRole('button', { name: 'Desactiva els avisos' }).waitFor();
+    assert.deepEqual(await page.evaluate(() => window.tables.push_subscriptions), [{
+      endpoint: 'https://push.example.com/mobil', member_id: 'm1', p256dh: 'clau', auth: 'secret',
+    }]);
+    assert.equal(await page.evaluate(() => window.subscribeOptions.userVisibleOnly), true);
+
+    await page.getByRole('button', { name: 'Desactiva els avisos' }).click();
+    await page.getByRole('button', { name: 'Activa els avisos' }).waitFor();
+    assert.equal(await page.evaluate(() => window.tables.push_subscriptions.length), 0);
+    assert.deepEqual(errors, []);
+    await context.close();
+  }
+  {
+    const { page, context } = await enter('denied');
+    await page.getByText('bloquejats').waitFor();
+    assert.equal(await page.getByRole('button', { name: 'Activa els avisos' }).count(), 0);
+    await context.close();
+  }
+}
+
+async function checkSmartThings() {
+  const { page, context } = await newPage();
+  await page.goto(`${BASE_URL}#casa`);
+  const link = page.getByRole('link', { name: 'Obre SmartThings' });
+  assert.match(await link.getAttribute('href'), /^intent:.*com\.samsung\.android\.oneconnect/);
+  await context.close();
+
+  const iphone = await newPage(390, { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)' });
+  await iphone.page.goto(`${BASE_URL}#casa`);
+  assert.match(
+    await iphone.page.getByRole('link', { name: 'Obre SmartThings' }).getAttribute('href'),
+    /apps\.apple\.com\/app\/id1222822904/,
+  );
+  await iphone.context.close();
+}
+
 async function checkOfflineShell() {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
@@ -448,6 +533,8 @@ await checkDuplicateRace();
 await checkOfflineData();
 await checkWeather();
 await checkWeatherDenied();
+await checkPush();
+await checkSmartThings();
 await checkOfflineShell();
 await checkUpdate();
 await screenshots();

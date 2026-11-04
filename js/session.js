@@ -60,7 +60,7 @@ export async function loadAccess() {
     if (error) throw error;
 
     return members.some((member) => member.email === email)
-      ? { status: 'member' }
+      ? { status: 'member', email }
       : { status: 'notMember', email };
   } catch (error) {
     return { status: 'error', message: error.message };
