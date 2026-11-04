@@ -52,7 +52,24 @@ test('cita de tot el dia queda a mitjanit de Madrid', () => {
   );
   assert.equal(row.all_day, true);
   assert.equal(row.starts_at, '2026-11-09T23:00:00.000Z');
-  assert.equal(row.ends_at, null);
+  assert.equal(row.ends_at, '2026-11-10T23:00:00.000Z');
+});
+
+test('cita de tres dies guarda el final', () => {
+  const [row] = parseIcal(
+    calendar(['UID:a', 'DTSTART;VALUE=DATE:20261201', 'DTEND;VALUE=DATE:20261204']),
+    now,
+  );
+  assert.equal(row.starts_at, '2026-11-30T23:00:00.000Z');
+  assert.equal(row.ends_at, '2026-12-03T23:00:00.000Z');
+});
+
+test('una cita llarga en curs es manté encara que hagi començat fa dies', () => {
+  const rows = parseIcal(
+    calendar(['UID:a', 'DTSTART;VALUE=DATE:20261030', 'DTEND;VALUE=DATE:20261106']),
+    now,
+  );
+  assert.equal(rows.length, 1);
 });
 
 test('text amb escapaments i línies plegades', () => {

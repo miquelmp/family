@@ -36,6 +36,14 @@ export const pendingTasks = (tasks) => tasks.filter((task) => !task.done_at);
 
 export const eventDate = (event) => todayInMadrid(new Date(event.starts_at));
 
+/** Últim dia d'una cita. En les de tot el dia, ends_at és l'inici del dia següent. */
+export const eventLastDate = (event) => {
+  if (!event.ends_at) return eventDate(event);
+  const end = todayInMadrid(new Date(event.ends_at));
+  const last = event.all_day ? addDays(end, -1) : end;
+  return last > eventDate(event) ? last : eventDate(event);
+};
+
 export const eventTime = (event) =>
   event.all_day
     ? 'Tot el dia'
@@ -49,7 +57,9 @@ export const eventTime = (event) =>
 const byStart = (a, b) => new Date(a.starts_at) - new Date(b.starts_at);
 
 export const eventsOn = (agenda, isoDate) =>
-  agenda.filter((event) => eventDate(event) === isoDate).sort(byStart);
+  agenda
+    .filter((event) => eventDate(event) <= isoDate && isoDate <= eventLastDate(event))
+    .sort(byStart);
 
 /** Pròxima cita que encara no ha començat. Les de tot el dia compten tot el dia. */
 export const nextEvent = (agenda, now = new Date()) =>
@@ -57,7 +67,7 @@ export const nextEvent = (agenda, now = new Date()) =>
     .sort(byStart)
     .find((event) =>
       event.all_day
-        ? eventDate(event) >= todayInMadrid(now)
+        ? eventLastDate(event) >= todayInMadrid(now)
         : new Date(event.starts_at) >= now,
     );
 

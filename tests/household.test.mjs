@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import {
   eventDate,
+  eventLastDate,
   eventTime,
   eventsOn,
   findProduct,
@@ -101,4 +102,34 @@ test('la resposta d\'Open-Meteo es tradueix', () => {
   assert.deepEqual(weather, { temperature: 17, max: 20, min: 11, label: 'Pluja', rainAt: '18:00' });
   assert.equal(weatherLabel(0), 'Cel serè');
   assert.equal(weatherLabel(95), 'Tempesta');
+});
+
+test('una cita de diversos dies surt tots els dies', () => {
+  const trip = {
+    all_day: true,
+    starts_at: '2026-11-30T23:00:00Z',
+    ends_at: '2026-12-03T23:00:00Z',
+  };
+  assert.equal(eventLastDate(trip), '2026-12-03');
+  for (const day of ['2026-12-01', '2026-12-02', '2026-12-03']) {
+    assert.deepEqual(eventsOn([trip], day), [trip]);
+  }
+  assert.deepEqual(eventsOn([trip], '2026-11-30'), []);
+  assert.deepEqual(eventsOn([trip], '2026-12-04'), []);
+});
+
+test('una cita d\'un dia de tot el dia només surt aquell dia', () => {
+  const day = { all_day: true, starts_at: '2026-11-09T23:00:00Z', ends_at: '2026-11-10T23:00:00Z' };
+  assert.deepEqual(eventsOn([day], '2026-11-10'), [day]);
+  assert.deepEqual(eventsOn([day], '2026-11-11'), []);
+});
+
+test('la pròxima cita inclou un viatge en curs', () => {
+  const trip = {
+    all_day: true,
+    starts_at: '2026-11-30T23:00:00Z',
+    ends_at: '2026-12-03T23:00:00Z',
+  };
+  assert.equal(nextEvent([trip], new Date('2026-12-02T12:00:00Z')), trip);
+  assert.equal(nextEvent([trip], new Date('2026-12-04T12:00:00Z')), undefined);
 });

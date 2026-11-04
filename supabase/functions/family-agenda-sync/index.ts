@@ -194,16 +194,20 @@ function occurrences(event, windowEnd) {
   return found;
 }
 
-const toRow = (event, uid, date, durationMs) => {
+const toRow = (event, uid, date, duration) => {
   const startsAt = zonedInstant(date, event.start.time, event.start.zone);
+  const { allDay } = event.start;
+  const firstDay = zonedInstant(date, [0, 0, 0], DEFAULT_ZONE);
+  // En una cita de tot el dia, ends_at és l'inici del dia següent a l'últim.
+  const endsAt = allDay
+    ? duration !== null && zonedInstant(shift(date, duration), [0, 0, 0], DEFAULT_ZONE)
+    : duration !== null && new Date(startsAt.getTime() + duration);
   return {
     uid,
     title: event.title || '(Sense títol)',
-    starts_at: event.start.allDay
-      ? zonedInstant(date, [0, 0, 0], DEFAULT_ZONE).toISOString()
-      : startsAt.toISOString(),
-    ends_at: durationMs === null ? null : new Date(startsAt.getTime() + durationMs).toISOString(),
-    all_day: event.start.allDay,
+    starts_at: (allDay ? firstDay : startsAt).toISOString(),
+    ends_at: endsAt ? endsAt.toISOString() : null,
+    all_day: allDay,
   };
 };
 
@@ -224,17 +228,21 @@ export function parseIcal(text, now = new Date()) {
   for (const event of events) {
     if (event.status === 'CANCELLED') continue;
 
-    const durationMs = event.end && !event.start.allDay
-      ? stampInstant(event.end) - stampInstant(event.start)
-      : null;
+    // Durada en dies per a les cites de tot el dia, i en mil·lisegons per a la resta.
+    let duration = null;
+    if (event.end) {
+      duration = event.start.allDay
+        ? Math.round((event.end.date - event.start.date) / DAY)
+        : stampInstant(event.end) - stampInstant(event.start);
+    }
 
     if (event.recurrenceId) {
       const key = dayKey(event.recurrenceId.date);
-      rows.push(toRow(event, `${event.uid}_${key}`, event.start.date, durationMs));
+      rows.push(toRow(event, `${event.uid}_${key}`, event.start.date, duration));
       continue;
     }
     if (!event.rule) {
-      rows.push(toRow(event, event.uid, event.start.date, durationMs));
+      rows.push(toRow(event, event.uid, event.start.date, duration));
       continue;
     }
 
@@ -242,14 +250,14 @@ export function parseIcal(text, now = new Date()) {
     for (const date of occurrences(event, windowEnd)) {
       const instant = zonedInstant(date, event.start.time, event.start.zone).toISOString();
       if (!excluded.has(instant) && !replaced.has(`${event.uid}|${instant}`)) {
-        rows.push(toRow(event, `${event.uid}_${dayKey(date)}`, date, durationMs));
+        rows.push(toRow(event, `${event.uid}_${dayKey(date)}`, date, duration));
       }
     }
   }
 
   return rows.filter((row) => {
-    const startsAt = new Date(row.starts_at);
-    return startsAt >= windowStart && startsAt <= windowEnd;
+    const endsAt = new Date(row.ends_at ?? row.starts_at);
+    return endsAt >= windowStart && new Date(row.starts_at) <= windowEnd;
   });
 }
 
