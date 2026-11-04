@@ -1,6 +1,6 @@
 // Guarda els fitxers de l'app perquè s'obri sense connexió.
-// Augmenta VERSION quan canviïs els fitxers de SHELL.
-const VERSION = 'family-v4';
+// Augmenta VERSION quan afegeixis o treguis fitxers de SHELL.
+const VERSION = 'family-v5';
 
 const SHELL = [
   './',
@@ -23,7 +23,11 @@ const CACHED_HOSTS = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(VERSION).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()),
+    caches
+      .open(VERSION)
+      // reload evita guardar fitxers antics de la memòria del navegador.
+      .then((cache) => cache.addAll(SHELL.map((path) => new Request(path, { cache: 'reload' }))))
+      .then(() => self.skipWaiting()),
   );
 });
 
@@ -47,16 +51,27 @@ self.addEventListener('fetch', (event) => {
   // Les dades de Supabase no passen mai per aquesta memòria.
   if (!isOwnFile && !CACHED_HOSTS.includes(url.hostname)) return;
 
+  // Els fitxers propis es demanen primer a la xarxa, per tenir sempre l'última versió.
+  // La còpia desada només s'usa sense connexió.
   event.respondWith(
     caches.open(VERSION).then(async (cache) => {
-      const cached = await cache.match(request, { ignoreSearch: isOwnFile });
-      const fresh = fetch(request)
-        .then((response) => {
-          if (response.ok) cache.put(request, response.clone());
+      if (isOwnFile) {
+        try {
+          const response = await fetch(request, { cache: 'no-cache' });
+          if (response.ok) await cache.put(request, response.clone());
           return response;
-        })
-        .catch(() => cached);
-      return cached || fresh;
+        } catch (error) {
+          const saved = await cache.match(request, { ignoreSearch: true });
+          if (saved) return saved;
+          throw error;
+        }
+      }
+
+      const cached = await cache.match(request);
+      if (cached) return cached;
+      const response = await fetch(request);
+      if (response.ok) await cache.put(request, response.clone());
+      return response;
     }),
   );
 });

@@ -78,4 +78,4 @@ tests/rls/run.sh               # regles d'accés, amb un Postgres local
 node tests/e2e.mjs             # navegador, amb Playwright (vegeu el fitxer)
 ```
 
-Quan canviïs fitxers de l'app, augmenta `VERSION` a `sw.js` perquè els mòbils els actualitzin.
+Quan afegeixis o treguis fitxers de l'app, actualitza `SHELL` i `VERSION` a `sw.js`.

@@ -404,6 +404,26 @@ async function checkOfflineShell() {
   await context.close();
 }
 
+// Simula un mòbil amb una versió antiga guardada: ha de rebre la nova en obrir l'app.
+async function checkUpdate() {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.abort());
+  await page.goto(BASE_URL);
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.waitForFunction(() => navigator.serviceWorker.controller);
+  await page.evaluate(async () => {
+    const [name] = await caches.keys();
+    const cache = await caches.open(name);
+    await cache.put('js/household.js', new Response('export const antic = true;', {
+      headers: { 'content-type': 'text/javascript' },
+    }));
+  });
+  const fresh = await page.evaluate(async () => (await fetch('js/household.js')).text());
+  assert.ok(fresh.includes('eventLastDate'), 'ha de rebre la versió de la xarxa');
+  await context.close();
+}
+
 async function screenshots() {
   if (!SHOTS) return;
   const context = await browser.newContext({
@@ -429,6 +449,7 @@ await checkOfflineData();
 await checkWeather();
 await checkWeatherDenied();
 await checkOfflineShell();
+await checkUpdate();
 await screenshots();
 await browser.close();
 console.log('Proves de navegador superades');

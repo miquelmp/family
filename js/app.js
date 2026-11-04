@@ -263,6 +263,14 @@ window.addEventListener('online', () => {
 });
 
 if ('serviceWorker' in navigator) {
+  // Quan arriba una versió nova, es recarrega una sola vegada per fer-la servir.
+  const hadController = Boolean(navigator.serviceWorker.controller);
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return;
+    reloading = true;
+    location.reload();
+  });
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
