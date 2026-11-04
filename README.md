@@ -9,8 +9,8 @@ Aquest repositori és públic. **No hi posis mai noms reals, correus ni claus se
 
 ## Estat
 
-Sense configurar Supabase, l'app funciona en mode demostració amb dades inventades que no es desen.
-Amb Supabase, les pantalles treballen amb dades reals: dinars, setmana tipus, menú, compra, tasques,
+Si `js/config.js` és buit, l'app funciona en mode demostració amb dades inventades.
+Amb la configuració actual, les pantalles treballen amb dades reals: dinars, setmana tipus, menú, compra, tasques,
 meteo i exportació. L'agenda es llegeix de la taula `agenda_events`, però encara falta la tasca
 programada que hi copia Google Calendar.
 
@@ -34,13 +34,13 @@ A **Project Settings > Data API > Exposed schemas**, afegeix `family`.
 
 ### 3. Abans de publicar la clau
 
-La clau `anon` es publicarà en aquest repositori, i serveix per a tot el projecte Supabase.
+La clau publicable es publica en aquest repositori, i serveix per a tot el projecte Supabase.
 Comprova que totes les taules dels altres esquemes exposats tenen RLS activa.
 
 ### 4. Configuració de l'app
 
-Omple `js/config.js` amb la URL del projecte i la clau `anon`.
-No hi posis mai la clau `service_role`.
+`js/config.js` té la URL del projecte i la clau publicable.
+No hi posis mai la clau `secret` ni la `service_role`.
 
 ### 5. Publicació
 

@@ -11,6 +11,13 @@ const SHOTS = process.env.SHOTS;
 
 const browser = await chromium.launch();
 
+// Les proves de demostració no han de dependre de la configuració publicada.
+const DEMO_CONFIG = "export const config = { supabaseUrl: '', supabaseAnonKey: '' };";
+const useDemoConfig = (page) =>
+  page.route('**/js/config.js', (route) =>
+    route.fulfill({ contentType: 'text/javascript', body: DEMO_CONFIG }),
+  );
+
 async function newPage(width = 390, options = {}) {
   const context = await browser.newContext({
     viewport: { width, height: 844 },
@@ -23,6 +30,7 @@ async function newPage(width = 390, options = {}) {
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.abort());
+  await useDemoConfig(page);
   return { page, context, errors };
 }
 
@@ -391,7 +399,8 @@ async function checkOfflineShell() {
   await page.waitForFunction(() => navigator.serviceWorker.controller);
   await context.setOffline(true);
   await page.reload();
-  await page.waitForSelector('.tabs');
+  // Sense connexió ni sessió desada, l'app s'obre i explica el problema.
+  await page.waitForSelector('.tabs, .center h1');
   await context.close();
 }
 
@@ -403,6 +412,7 @@ async function screenshots() {
     serviceWorkers: 'block',
   });
   const page = await context.newPage();
+  await useDemoConfig(page);
   for (const name of ['avui', 'setmana', 'horari', 'casa']) {
     await page.goto(`${BASE_URL}#${name}`);
     await page.waitForSelector('.tabs');
