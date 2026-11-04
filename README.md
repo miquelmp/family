@@ -11,8 +11,7 @@ Aquest repositori és públic. **No hi posis mai noms reals, correus ni claus se
 
 Si `js/config.js` és buit, l'app funciona en mode demostració amb dades inventades.
 Amb la configuració actual, les pantalles treballen amb dades reals: dinars, setmana tipus, menú, compra, tasques,
-meteo i exportació. L'agenda es llegeix de la taula `agenda_events`, però encara falta la tasca
-programada que hi copia Google Calendar.
+meteo, exportació i agenda copiada de Google Calendar cada 15 minuts.
 
 ## Posada en marxa
 
@@ -51,6 +50,15 @@ L'app quedarà a `https://miquelmp.github.io/family/`.
 
 - **Android:** obre l'adreça amb Chrome i tria **Instal·la l'aplicació**.
 - **iPhone:** obre l'adreça amb Safari i tria **Comparteix > Afegeix a la pantalla d'inici**.
+
+### 7. Agenda
+
+La funció `family-agenda-sync` copia els propers 60 dies del calendari Family.
+
+1. A **Edge Functions**, crea la funció `family-agenda-sync` amb el codi de
+   `supabase/functions/family-agenda-sync/index.ts`, i desactiva la verificació de JWT.
+2. A **Edge Functions > Secrets**, crea `FAMILY_ICAL_URL` i `FAMILY_CRON_SECRET`.
+3. Executa una còpia de `supabase/agenda-sync.example.sql` amb el secret real.
 
 ## Separació de simlabedu
 
