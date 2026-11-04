@@ -75,7 +75,7 @@ begin
 
   perform set_config('request.jwt.claims', '{"email":"membre@example.com"}', true);
   set local role authenticated;
-  insert into family.shopping_items (name, is_usual) values ('Llet', true);
+  insert into family.shopping_items (name, is_usual) values ('Producte de prova', true);
   insert into family.tasks (title) values ('Parar taula');
   insert into family.menus (lunch_date, dish) values ('2026-11-04', 'Crema');
   reset role;
@@ -106,7 +106,7 @@ $$;
 do $$
 begin
   begin
-    insert into family.shopping_items (name) values ('LLET');
+    insert into family.shopping_items (name) values ('PRODUCTE DE PROVA');
     raise exception 'El producte duplicat s''hauria d''haver rebutjat';
   exception when unique_violation then
     null;
