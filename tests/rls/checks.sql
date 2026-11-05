@@ -139,6 +139,22 @@ select pg_temp.expect_denied(
 select pg_temp.expect_denied(
   'authenticated', '{"email":"membre@example.com"}', 'select * from family.sent_reminders');
 
+-- Assignar cites és només per als membres.
+do $$
+begin
+  perform set_config('request.jwt.claims', '{"email":"segon@example.com"}', true);
+  set local role authenticated;
+  insert into family.event_assignees (event_uid, member_id)
+    values ('cita', '00000000-0000-0000-0000-000000000002');
+  reset role;
+end;
+$$;
+
+select pg_temp.expect_denied(
+  'authenticated', '{"email":"alie@example.com"}',
+  $sql$insert into family.event_assignees (event_uid, member_id)
+       values ('intrusio', '00000000-0000-0000-0000-000000000002')$sql$);
+
 -- No es poden duplicar productes, ni canviant majúscules.
 do $$
 begin

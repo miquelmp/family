@@ -1,6 +1,6 @@
 // Guarda els fitxers de l'app perquè s'obri sense connexió.
 // Augmenta VERSION quan afegeixis o treguis fitxers de SHELL.
-const VERSION = 'family-v6';
+const VERSION = 'family-v7';
 
 const SHELL = [
   './',

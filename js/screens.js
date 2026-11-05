@@ -82,8 +82,44 @@ function shell(state, activeTab, content) {
     ${sheet(state)}`;
 }
 
+function assigneeButtons(state, uid) {
+  return state.members
+    .map((member) => {
+      const assigned = state.assignees.some(
+        (row) => row.event_uid === uid && row.member_id === member.id,
+      );
+      return `
+        <button class="avatar-button" aria-pressed="${assigned}"
+          aria-label="${assigned ? 'Treu' : 'Assigna'}: ${escapeHtml(member.display_name)} (${escapeHtml(member.short_label)})"
+          data-action="toggle-assignee" data-event="${escapeHtml(uid)}"
+          data-member="${escapeHtml(member.id)}" data-next="${!assigned}">
+          ${avatar(member, { size: 'sm', present: assigned })}
+        </button>`;
+    })
+    .join('');
+}
+
+const audience = (state, uid) =>
+  state.assignees.some((row) => row.event_uid === uid)
+    ? 'Avisa només les persones marcades'
+    : 'Avisa tothom';
+
 function sheet(state) {
   if (!state.sheet) return '';
+  if (state.sheet.type === 'event') {
+    const event = state.agenda.find((entry) => entry.uid === state.sheet.uid);
+    if (!event) return '';
+    return `
+      <div class="sheet" role="dialog" aria-modal="true" aria-label="Assigna la cita">
+        <div class="sheet__panel">
+          <h2>${escapeHtml(event.title)}</h2>
+          <p class="hint">${escapeHtml(shortDate(eventDate(event)))} · ${escapeHtml(eventTime(event))}</p>
+          <div class="assignees">${assigneeButtons(state, event.uid)}</div>
+          <p class="hint">${audience(state, event.uid)}</p>
+          <button class="primary" data-action="close-sheet">Fet</button>
+        </div>
+      </div>`;
+  }
   if (state.sheet.type === 'menu') {
     const { date } = state.sheet;
     return `
@@ -186,13 +222,17 @@ function lunchButtons(state, date) {
     .join('');
 }
 
-function agendaRows(events) {
+function agendaRows(state, events) {
   return events
     .map(
       (event) => `
-        <li class="row">
+        <li class="row row--event">
           <span class="row__time ${event.all_day ? 'row__time--wide' : ''}">${escapeHtml(eventTime(event))}</span>
-          <span class="row__main"><strong>${escapeHtml(event.title)}</strong></span>
+          <span class="row__main">
+            <strong>${escapeHtml(event.title)}</strong>
+            <small>${audience(state, event.uid)}</small>
+          </span>
+          <span class="assignees">${assigneeButtons(state, event.uid)}</span>
         </li>`,
     )
     .join('');
@@ -238,7 +278,7 @@ export function todayScreen(state) {
 
     <section class="card" aria-label="Agenda d'avui">
       <h2 class="card__title">Agenda d'avui</h2>
-      ${events.length ? `<ul class="list">${agendaRows(events)}</ul>` : '<p class="empty">Avui no hi ha res a l\'agenda.</p>'}
+      ${events.length ? `<ul class="list">${agendaRows(state, events)}</ul>` : '<p class="empty">Avui no hi ha res a l\'agenda.</p>'}
     </section>
 
     <div class="tiles">
@@ -304,7 +344,14 @@ export function weekScreen(state) {
             <button class="dish-link" data-action="edit-menu" data-date="${date}">
               ${escapeHtml(dish || 'Afegeix menú')}
             </button>
-            ${events.map((event) => `<small>${escapeHtml(eventTime(event))} ${escapeHtml(event.title)}</small>`).join('')}
+            ${events
+              .map(
+                (event) => `
+                  <button class="event-link" data-action="open-event" data-event="${escapeHtml(event.uid)}">
+                    ${escapeHtml(eventTime(event))} ${escapeHtml(event.title)}
+                  </button>`,
+              )
+              .join('')}
           </span>
           <span class="day__people">${people}</span>
         </li>`;

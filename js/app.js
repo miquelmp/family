@@ -41,6 +41,7 @@ const state = {
   overrides: [],
   menus: [],
   agenda: [],
+  assignees: [],
   shopping: [],
   tasks: [],
   weather: null,
@@ -206,9 +207,9 @@ async function disablePush() {
 }
 
 function exportData() {
-  const { members, weeklyLunches, overrides, menus, agenda, shopping, tasks } = state;
+  const { members, weeklyLunches, overrides, menus, agenda, assignees, shopping, tasks } = state;
   const content = JSON.stringify(
-    { exported_at: new Date().toISOString(), members, weeklyLunches, overrides, menus, agenda, shopping, tasks },
+    { exported_at: new Date().toISOString(), members, weeklyLunches, overrides, menus, agenda, assignees, shopping, tasks },
     null,
     2,
   );
@@ -227,6 +228,14 @@ const ACTIONS = {
     change(() => store.setOverride(member, date, isTrue(next))),
   'toggle-weekly': ({ member, weekday, next }) =>
     change(() => store.setWeekly(member, Number(weekday), state.today, isTrue(next))),
+  'toggle-assignee': async ({ event, member, next }) => {
+    await change(() => store.setAssignee(event, member, isTrue(next)));
+    render();
+  },
+  'open-event': ({ event }) => {
+    state.sheet = { type: 'event', uid: event };
+    render();
+  },
   'toggle-product': ({ id, next }) => change(() => store.setOnList(id, isTrue(next))),
   'mark-bought': ({ id }) => change(() => store.markBought(id, state.shopping)),
   'toggle-task': ({ id, next }) => change(() => store.setTaskDone(id, isTrue(next))),

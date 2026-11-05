@@ -41,6 +41,7 @@ export const demoData = (today) => ({
     ...everyWeekday('p4', [4, 5, 6, 7]),
   ],
   overrides: [],
+  assignees: [{ event_uid: 'a1', member_id: 'p3' }],
   menus: weekDates(today)
     .slice(0, DISHES.length)
     .map((lunch_date, index) => ({ lunch_date, dish: DISHES[index] })),

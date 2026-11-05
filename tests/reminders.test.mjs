@@ -149,6 +149,19 @@ test('una cita amb convidats només s\'avisa a ells', () => {
   ]);
 });
 
+test('les persones marcades a l\'app tenen prioritat sobre els convidats', () => {
+  const events = [
+    { uid: 'e1', title: 'Metge', starts_at: '2026-11-05T08:30:00Z', all_day: false, attendee_emails: ['dos@example.com'] },
+    { uid: 'e2', title: 'Tothom', starts_at: '2026-11-05T10:30:00Z', all_day: false, attendee_emails: [] },
+  ];
+  const assignees = [{ event_uid: 'e1', member_id: 'm1' }];
+  const reminders = buildReminders(new Date('2026-11-05T07:07:00Z'), events, [], members, assignees);
+  assert.deepEqual(reminders.map((item) => [item.memberId, item.body]), [
+    ['m1', '09:30 Metge\n11:30 Tothom'],
+    ['m2', '11:30 Tothom'],
+  ]);
+});
+
 test('si cap convidat és de la família, s\'avisa a tothom', () => {
   const outside = [
     { title: 'Reunió', starts_at: '2026-11-05T08:30:00Z', all_day: false, attendee_emails: ['fora@example.com'] },
@@ -201,6 +214,7 @@ function fakeServer({ claimed = [], pushStatus = 201 } = {}) {
       ]);
     }
     if (url.includes('/members')) return Response.json(members);
+    if (url.includes('/event_assignees')) return Response.json([]);
     if (url.includes('/agenda_events')) return Response.json(agenda);
     if (url.includes('/tasks')) return Response.json(tasks);
     if (url.includes('/sent_reminders')) {

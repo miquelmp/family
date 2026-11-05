@@ -34,6 +34,13 @@ export function createDemoStore(today) {
       if (dish) data.menus.push({ lunch_date, dish });
     },
 
+    async setAssignee(event_uid, member_id, assigned) {
+      data.assignees = data.assignees.filter(
+        (row) => !(row.event_uid === event_uid && row.member_id === member_id),
+      );
+      if (assigned) data.assignees.push({ event_uid, member_id });
+    },
+
     async addProduct(name) {
       const existing = findProduct(data.shopping, name);
       if (existing) existing.on_list = true;
@@ -73,12 +80,13 @@ export function createSupabaseStore(client) {
 
   return {
     async load() {
-      const [members, weeklyLunches, overrides, menus, agenda, shopping, tasks] = await Promise.all([
+      const [members, weeklyLunches, overrides, menus, agenda, assignees, shopping, tasks] = await Promise.all([
         table('members').select('id, email, display_name, short_label, color, sort_order').order('sort_order'),
         table('weekly_lunches').select('*').order('valid_from'),
         table('lunch_overrides').select('*').order('lunch_date'),
         table('menus').select('*').order('lunch_date'),
         table('agenda_events').select('*').order('starts_at'),
+        table('event_assignees').select('*').order('event_uid'),
         table('shopping_items').select('*').order('name'),
         table('tasks').select('*').order('created_at'),
       ]);
@@ -88,6 +96,7 @@ export function createSupabaseStore(client) {
         overrides: check(overrides),
         menus: check(menus),
         agenda: check(agenda),
+        assignees: check(assignees),
         shopping: check(shopping),
         tasks: check(tasks),
       };
@@ -115,6 +124,17 @@ export function createSupabaseStore(client) {
         dish
           ? await table('menus').upsert({ lunch_date, dish })
           : await table('menus').delete().eq('lunch_date', lunch_date),
+      );
+    },
+
+    async setAssignee(event_uid, member_id, assigned) {
+      check(
+        assigned
+          ? await table('event_assignees').upsert({ event_uid, member_id })
+          : await table('event_assignees')
+              .delete()
+              .eq('event_uid', event_uid)
+              .eq('member_id', member_id),
       );
     },
 

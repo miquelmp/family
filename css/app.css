@@ -338,6 +338,26 @@ ul, ol { list-style: none; }
 .row__time--wide { width: 72px; font-size: 13px; }
 .row__main small { font-weight: 400; }
 
+.row--event { flex-wrap: wrap; padding: 8px 0; row-gap: 2px; }
+.row--event .assignees { width: 100%; padding-left: 52px; }
+.assignees { display: flex; flex-wrap: wrap; }
+.sheet .avatar-button { width: 44px; }
+
+.event-link {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .dish-link {
   display: block;
   min-height: 28px;

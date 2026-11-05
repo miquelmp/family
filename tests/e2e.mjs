@@ -58,6 +58,13 @@ async function checkDemo(width) {
   }
   assert.equal(await page.locator('.card--lunch h2').innerText(), 'Tots junts');
 
+  // Assignar una cita canvia a qui avisa, i es pot desfer.
+  await page.getByRole('button', { name: 'Assigna: Persona 1 (P1)' }).first().click();
+  await page.getByRole('button', { name: 'Treu: Persona 1 (P1)' }).first().waitFor();
+  assert.ok(await noSideScroll(page), `scroll horitzontal amb l'agenda (${width})`);
+  await page.getByRole('button', { name: 'Treu: Persona 1 (P1)' }).first().click();
+  await page.getByRole('button', { name: 'Assigna: Persona 1 (P1)' }).first().waitFor();
+
   // Menú editable.
   await page.locator('.card--lunch .dish').click();
   await page.fill('.sheet input[name=dish]', 'Sopa <b>');
@@ -71,6 +78,14 @@ async function checkDemo(width) {
   assert.equal(await page.locator('.day--today .together').count(), 1);
   await page.locator('.day--today .avatar-button').first().click();
   await page.waitForFunction(() => !document.querySelector('.day--today .together'));
+
+  // Des de Setmana, la cita s'assigna en una finestra.
+  await page.locator('.event-link').first().click();
+  await page.getByRole('dialog', { name: 'Assigna la cita' }).waitFor();
+  await page.getByRole('button', { name: 'Assigna: Persona 2 (P2)' }).click();
+  await page.getByRole('button', { name: 'Treu: Persona 2 (P2)' }).waitFor();
+  await page.getByRole('button', { name: 'Fet' }).click();
+  await page.waitForFunction(() => !document.querySelector('.sheet'));
 
   // Setmana següent, i tornada.
   await page.getByRole('button', { name: 'Setmana següent' }).click();
@@ -142,11 +157,12 @@ const fakeSupabase = (scenario) => `
     weekly_lunches: ['member_id', 'weekday', 'valid_from'],
     menus: ['lunch_date'],
     push_subscriptions: ['endpoint'],
+    event_assignees: ['event_uid', 'member_id'],
   };
   const tables = window.tables = {
     members: scenario.members ?? [], weekly_lunches: [], lunch_overrides: [], menus: [],
     agenda_events: scenario.agenda ?? [], shopping_items: scenario.shopping ?? [], tasks: [],
-    push_subscriptions: [],
+    push_subscriptions: [], event_assignees: [],
   };
   window.calls = [];
   const query = (name) => {
@@ -265,7 +281,7 @@ async function checkRealData() {
       { id: 'u1', name: 'Llet', category: 'Begudes', is_usual: true, on_list: false },
       { id: 'u2', name: 'Piles', is_usual: false, on_list: true },
     ],
-    agenda: [{ uid: 'e1', title: 'Cita real', starts_at: `${today}T23:00:00Z`, all_day: false }],
+    agenda: [{ uid: 'e1', title: 'Cita real', starts_at: `${today}T12:00:00Z`, all_day: false }],
   });
   await page.waitForSelector('.tabs');
   assert.equal(await page.getByText('Mode demostració').count(), 0);
@@ -282,6 +298,15 @@ async function checkRealData() {
     { member_id: 'm1', lunch_date: today, at_home: true },
   ]);
   await page.waitForFunction(() => document.querySelector('.card--lunch h2').innerText === 'Una persona a taula');
+
+  // Assignar una cita real desa el membre, i treure'l l'esborra.
+  await page.getByRole('button', { name: 'Assigna: Dos (Do)' }).click();
+  await page.waitForFunction(() => window.tables.event_assignees.length === 1);
+  assert.deepEqual(await page.evaluate(() => window.tables.event_assignees), [
+    { event_uid: 'e1', member_id: 'm2' },
+  ]);
+  await page.getByRole('button', { name: 'Treu: Dos (Do)' }).click();
+  await page.waitForFunction(() => window.tables.event_assignees.length === 0);
 
   // Setmana tipus: es desa amb la data d'avui.
   await page.goto(`${BASE_URL}#horari`);

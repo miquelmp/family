@@ -155,20 +155,24 @@ const eventsOn = (agenda, date) =>
     .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
 
 /**
- * Una cita amb convidats de la família només s'avisa a ells.
- * Sense convidats, o si cap és de la família, s'avisa a tothom.
+ * Prioritat: membres marcats a l'app, convidats de la família, i si no n'hi ha, tothom.
  */
-function recipientsOf(event, members) {
+function recipientsOf(event, members, assignees) {
+  const assigned = members.filter((member) =>
+    assignees.some((row) => row.event_uid === event.uid && row.member_id === member.id),
+  );
+  if (assigned.length) return assigned;
+
   const invited = members.filter((member) =>
     (event.attendee_emails ?? []).includes(member.email),
   );
   return invited.length ? invited : members;
 }
 
-function agendaReminders(agenda, members, date, title, moment) {
+function agendaReminders(agenda, members, assignees, date, title, moment) {
   const events = eventsOn(agenda, date);
   return members.flatMap((member) => {
-    const own = events.filter((event) => recipientsOf(event, members).includes(member));
+    const own = events.filter((event) => recipientsOf(event, members, assignees).includes(member));
     if (!own.length) return [];
     return [{
       key: `agenda-${date}-${moment}-${member.id}`,
@@ -183,16 +187,16 @@ function agendaReminders(agenda, members, date, title, moment) {
  * Decideix què toca avisar en aquest moment.
  * Al matí: cites i tasques d'avui. Al vespre: cites de demà.
  */
-export function buildReminders(now, agenda, tasks, members) {
+export function buildReminders(now, agenda, tasks, members, assignees = []) {
   const { date, hour } = madridParts(now);
   const reminders = [];
 
   if (hour === EVENING_HOUR) {
-    reminders.push(...agendaReminders(agenda, members, nextDate(date), 'Demà', 'vespre'));
+    reminders.push(...agendaReminders(agenda, members, assignees, nextDate(date), 'Demà', 'vespre'));
   }
 
   if (hour === MORNING_HOUR) {
-    reminders.push(...agendaReminders(agenda, members, date, 'Avui', 'mati'));
+    reminders.push(...agendaReminders(agenda, members, assignees, date, 'Avui', 'mati'));
 
     const groups = new Map();
     for (const task of tasks) {
@@ -254,16 +258,17 @@ export async function handle(request, env, fetcher = fetch, now = new Date()) {
   };
 
   const input = await request.json().catch(() => ({}));
-  const [subscriptions, agenda, tasks, members] = await Promise.all([
+  const [subscriptions, agenda, tasks, members, assignees] = await Promise.all([
     read('push_subscriptions?select=*'),
     input.test ? [] : read('agenda_events?select=*'),
     input.test ? [] : read('tasks?select=*'),
     input.test ? [] : read('members?select=id,email'),
+    input.test ? [] : read('event_assignees?select=*'),
   ]);
 
   const reminders = input.test
     ? [{ key: null, title: 'Family', body: 'Els avisos funcionen.', memberId: null }]
-    : buildReminders(now, agenda, tasks, members);
+    : buildReminders(now, agenda, tasks, members, assignees);
 
   let sent = 0;
   for (const reminder of reminders) {
