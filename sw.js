@@ -1,6 +1,6 @@
 // Guarda els fitxers de l'app perquè s'obri sense connexió.
 // Augmenta VERSION quan afegeixis o treguis fitxers de SHELL.
-const VERSION = 'family-v7';
+const VERSION = 'family-v8';
 
 const SHELL = [
   './',
@@ -16,6 +16,7 @@ const SHELL = [
   'js/screens.js',
   'js/session.js',
   'js/store.js',
+  'js/version.js',
   'icons/icon-192.png',
   'icons/icon-512.png',
 ];

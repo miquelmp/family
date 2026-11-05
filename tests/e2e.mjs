@@ -124,6 +124,8 @@ async function checkDemo(width) {
   await page.waitForFunction(() => document.querySelector('#new-product').value === '');
   assert.equal(await page.getByRole('button', { name: 'Comprat: Sabó' }).count(), 1);
 
+  assert.match(await page.locator('.version').innerText(), /^Versió \d{4}\.\d{2}\.\d{2}\.\d+$/);
+
   // Tasques.
   await page.getByRole('button', { name: 'Nova tasca' }).click();
   await page.fill('.sheet input[name=title]', 'Regar');

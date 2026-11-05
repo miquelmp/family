@@ -91,4 +91,5 @@ tests/rls/run.sh               # regles d'accés, amb un Postgres local
 node tests/e2e.mjs             # navegador, amb Playwright (vegeu el fitxer)
 ```
 
+A cada publicació, canvia `APP_VERSION` a `js/version.js`: és el número que es veu al final de Casa.
 Quan afegeixis o treguis fitxers de l'app, actualitza `SHELL` i `VERSION` a `sw.js`.

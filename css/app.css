@@ -491,6 +491,8 @@ ul, ol { list-style: none; }
 .sheet__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .field { display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 600; }
 
+.version { color: var(--muted); font-size: 12px; text-align: center; }
+
 .primary:disabled { opacity: 0.5; cursor: default; }
 
 .visually-hidden {

@@ -11,6 +11,7 @@ import {
   visibleTasks,
 } from './household.js';
 import { addDays, allTogether, isAtHome, isoWeekday, weekDates } from './lunch.js';
+import { APP_VERSION } from './version.js';
 
 export function escapeHtml(value) {
   return String(value).replace(
@@ -563,7 +564,8 @@ export function homeScreen(state) {
     ${pushCard(state)}
 
     <button class="secondary" data-action="export-data">Exporta les dades</button>
-    ${state.demo ? '' : '<button class="text-button" data-action="sign-out">Tanca la sessió</button>'}`,
+    ${state.demo ? '' : '<button class="text-button" data-action="sign-out">Tanca la sessió</button>'}
+    <p class="version">Versió ${APP_VERSION}</p>`,
   );
 }
 
