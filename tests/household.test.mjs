@@ -15,6 +15,7 @@ import {
   readPlace,
   readWeather,
   shoppingMessage,
+  swipeTarget,
   toBuy,
   usualByCategory,
   visibleTasks,
@@ -98,6 +99,18 @@ test('la pluja d\'avui no es confon amb la dels pròxims dies', () => {
 test('cada codi meteorològic té la seva icona', () => {
   const kinds = [0, 2, 3, 45, 61, 73, 81, 86, 95].map(weatherKind);
   assert.deepEqual(kinds, ['sun', 'partly', 'cloud', 'fog', 'rain', 'snow', 'rain', 'snow', 'storm']);
+});
+
+test('lliscar canvia de pantalla només si és clarament lateral', () => {
+  assert.equal(swipeTarget('', -100, 0), 'setmana');
+  assert.equal(swipeTarget('setmana', -100, 10), 'casa');
+  assert.equal(swipeTarget('casa', 100, 10), 'setmana');
+  assert.equal(swipeTarget('setmana', 100, 0), 'avui');
+  assert.equal(swipeTarget('avui', 100, 0), null);
+  assert.equal(swipeTarget('casa', -100, 0), null);
+  assert.equal(swipeTarget('avui', -40, 0), null);
+  assert.equal(swipeTarget('avui', -100, 80), null);
+  assert.equal(swipeTarget('horari', -100, 0), null);
 });
 
 test('el nom del lloc es tria de la resposta', () => {

@@ -4,6 +4,20 @@ import { addDays, todayInMadrid } from './lunch.js';
 
 const TIME_ZONE = 'Europe/Madrid';
 
+const SWIPE_TABS = ['avui', 'setmana', 'casa'];
+const SWIPE_DISTANCE = 60;
+
+/**
+ * Pantalla a la qual porta un lliscament, o null si no n'ha de canviar.
+ * Ha de ser clarament horitzontal, perquè pujar i baixar no canviï de pantalla.
+ */
+export const swipeTarget = (current, deltaX, deltaY) => {
+  if (Math.abs(deltaX) < SWIPE_DISTANCE || Math.abs(deltaX) < 2 * Math.abs(deltaY)) return null;
+  const index = SWIPE_TABS.indexOf(current || 'avui');
+  if (index === -1) return null;
+  return SWIPE_TABS[index + (deltaX < 0 ? 1 : -1)] ?? null;
+};
+
 export const toBuy = (items) =>
   items.filter((item) => item.on_list).sort((a, b) => a.name.localeCompare(b.name, 'ca'));
 

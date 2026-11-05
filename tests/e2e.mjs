@@ -575,6 +575,51 @@ async function checkTablet() {
   await context.close();
 }
 
+async function swipe(page, fromX, toX, fromY = 400, toY = 400) {
+  await page.evaluate(({ fromX, toX, fromY, toY }) => {
+    const target = document.querySelector('.content');
+    const touch = (x, y) =>
+      new Touch({ identifier: 1, target, clientX: x, clientY: y });
+    target.dispatchEvent(new TouchEvent('touchstart', {
+      bubbles: true, touches: [touch(fromX, fromY)], changedTouches: [touch(fromX, fromY)],
+    }));
+    target.dispatchEvent(new TouchEvent('touchend', {
+      bubbles: true, touches: [], changedTouches: [touch(toX, toY)],
+    }));
+  }, { fromX, toX, fromY, toY });
+}
+
+async function checkSwipe() {
+  const { page, context } = await newPage();
+  await page.goto(BASE_URL);
+  await page.waitForSelector('.tabs');
+  const activeTab = () => page.locator('.tab[aria-current="page"]').innerText();
+
+  await swipe(page, 300, 100);
+  await page.waitForFunction(() => location.hash === '#setmana');
+  await swipe(page, 300, 100);
+  await page.waitForFunction(() => location.hash === '#casa');
+  assert.match(await activeTab(), /Casa/);
+
+  // A l'última pantalla no passa res.
+  await swipe(page, 300, 100);
+  assert.equal(await page.evaluate(() => location.hash), '#casa');
+
+  await swipe(page, 100, 300);
+  await page.waitForFunction(() => location.hash === '#setmana');
+
+  // Pujar i baixar, o començar a la vora, no canvia de pantalla.
+  await swipe(page, 300, 200, 700, 200);
+  await swipe(page, 370, 200);
+  assert.equal(await page.evaluate(() => location.hash), '#setmana');
+
+  // Amb una finestra oberta tampoc.
+  await page.locator('.dish-link').first().click();
+  await swipe(page, 300, 100);
+  assert.equal(await page.evaluate(() => location.hash), '#setmana');
+  await context.close();
+}
+
 async function checkOfflineShell() {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
@@ -637,6 +682,7 @@ await checkPush();
 await checkSmartThings();
 await checkGroupShare();
 await checkTablet();
+await checkSwipe();
 await checkOfflineShell();
 await checkUpdate();
 await screenshots();

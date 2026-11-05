@@ -1,6 +1,13 @@
 import { config } from './config.js';
 import { demoWeather } from './demo.js';
-import { placeUrl, readPlace, readWeather, shoppingMessage, weatherUrl } from './household.js';
+import {
+  placeUrl,
+  readPlace,
+  readWeather,
+  shoppingMessage,
+  swipeTarget,
+  weatherUrl,
+} from './household.js';
 import { todayInMadrid } from './lunch.js';
 import {
   currentSubscription,
@@ -346,6 +353,44 @@ root.addEventListener('submit', (event) => {
   document.activeElement?.blur();
   change(() => FORMS[name](data, dataset));
 });
+
+// Lliscar el dit lateralment canvia de pantalla.
+// Les vores es deixen lliures perquè el mòbil les fa servir per tornar enrere.
+const SWIPE_EDGE = 24;
+let touchStart = null;
+
+root.addEventListener(
+  'touchstart',
+  (event) => {
+    const [touch] = event.touches;
+    const fromEdge =
+      touch.clientX < SWIPE_EDGE || touch.clientX > window.innerWidth - SWIPE_EDGE;
+    const blocked =
+      event.touches.length > 1 ||
+      fromEdge ||
+      wideScreen.matches ||
+      state.sheet ||
+      event.target.closest('input, select, textarea');
+    touchStart = blocked ? null : { x: touch.clientX, y: touch.clientY };
+  },
+  { passive: true },
+);
+
+root.addEventListener(
+  'touchend',
+  (event) => {
+    if (!touchStart) return;
+    const [touch] = event.changedTouches;
+    const target = swipeTarget(
+      location.hash.slice(1),
+      touch.clientX - touchStart.x,
+      touch.clientY - touchStart.y,
+    );
+    touchStart = null;
+    if (target) location.hash = target;
+  },
+  { passive: true },
+);
 
 // En girar la tauleta canvia la distribució.
 wideScreen.addEventListener('change', () => {
