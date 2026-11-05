@@ -68,7 +68,7 @@ function shell(state, activeTab, content) {
       </a>`,
   ).join('');
   const banner = state.offline
-    ? '<p class="banner">Sense connexió: últimes dades desades. Per fer canvis cal connexió.</p>'
+    ? '<p class="banner banner--offline" role="status">Sense connexió. Veus les últimes dades desades i no pots fer canvis.</p>'
     : state.demo
       ? '<p class="banner">Mode demostració: dades inventades que no es desen.</p>'
       : '';
@@ -105,8 +105,31 @@ const audience = (state, uid) =>
     ? 'Avisa només les persones marcades'
     : 'Avisa tothom';
 
+function weatherSheet({ weather }) {
+  const rows = weather.days
+    .map(
+      (day, index) => `
+        <li class="forecast">
+          <span class="forecast__day">${index === 0 ? 'Avui' : escapeHtml(formatDate(day.date, { weekday: 'short', day: 'numeric' }))}</span>
+          <span class="forecast__label">${escapeHtml(day.label)}<small>Pluja ${day.rain}%</small></span>
+          <span class="forecast__range">${day.max}° / ${day.min}°</span>
+        </li>`,
+    )
+    .join('');
+  return `
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="Previsió">
+      <div class="sheet__panel">
+        <h2>${escapeHtml(weather.place || 'Previsió')}</h2>
+        <ul class="list">${rows}</ul>
+        <a class="source" href="https://open-meteo.com">Weather data by Open-Meteo.com</a>
+        <button class="primary" data-action="close-sheet">Tanca</button>
+      </div>
+    </div>`;
+}
+
 function sheet(state) {
   if (!state.sheet) return '';
+  if (state.sheet.type === 'weather') return weatherSheet(state);
   if (state.sheet.type === 'event') {
     const event = state.agenda.find((entry) => entry.uid === state.sheet.uid);
     if (!event) return '';
@@ -185,6 +208,8 @@ function weatherCard(state) {
   }
   return `
     <section class="card card--weather" aria-label="Meteo">
+      <button class="weather__open" data-action="open-weather" aria-label="Veure la previsió">
+      ${weather.place ? `<span class="weather__place">${escapeHtml(weather.place)}</span>` : ''}
       <div class="weather__top">
         <div class="weather__now">
           ${icon(ICONS.cloud, 42)}
@@ -193,8 +218,9 @@ function weatherCard(state) {
             <span>${escapeHtml(weather.label)}</span>
           </div>
         </div>
-        <p class="weather__range">Màx. ${weather.max}°<br>Mín. ${weather.min}°</p>
+        <span class="weather__range">Màx. ${weather.max}°<br>Mín. ${weather.min}°</span>
       </div>
+      </button>
       <div class="weather__foot">
         <span>${weather.rainAt ? `Pluja cap a les ${escapeHtml(weather.rainAt)}` : 'Sense pluja prevista'}</span>
         ${source}
@@ -551,7 +577,7 @@ export function homeScreen(state) {
     <section class="card" aria-label="Tasques">
       <div class="card__heading">
         <h2 class="card__title">Tasques</h2>
-        <button class="text-button" data-action="new-task">Nova tasca</button>
+        <button class="link-button" data-action="new-task">Nova tasca</button>
       </div>
       ${tasks ? `<ul class="list">${tasks}</ul>` : '<p class="empty">No hi ha tasques pendents.</p>'}
     </section>

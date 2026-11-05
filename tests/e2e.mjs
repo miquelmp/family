@@ -58,6 +58,13 @@ async function checkDemo(width) {
   }
   assert.equal(await page.locator('.card--lunch h2').innerText(), 'Tots junts');
 
+  // La meteo obre la previsió, i tocar fora la tanca.
+  await page.getByRole('button', { name: 'Veure la previsió' }).click();
+  await page.getByRole('dialog', { name: 'Previsió' }).waitFor();
+  assert.equal(await page.locator('.forecast').count(), 7);
+  await page.mouse.click(width / 2, 20);
+  await page.waitForFunction(() => !document.querySelector('.sheet'));
+
   // Assignar una cita canvia a qui avisa, i es pot desfer.
   await page.getByRole('button', { name: 'Assigna: Persona 1 (P1)' }).first().click();
   await page.getByRole('button', { name: 'Treu: Persona 1 (P1)' }).first().waitFor();
@@ -379,7 +386,7 @@ async function checkOfflineData() {
     }),
   );
   await page.reload();
-  await page.getByText('Sense connexió').waitFor();
+  await page.locator('.banner--offline').waitFor();
   assert.ok(await page.locator('.lunch-toggle').first().isVisible());
   await page.locator('.lunch-toggle').first().click();
   await page.locator('.notice').waitFor();
@@ -399,14 +406,24 @@ async function checkWeather() {
       contentType: 'application/json',
       body: JSON.stringify({
         current: { temperature_2m: 15.2, weather_code: 3, time: '2026-11-04T12:00' },
-        daily: { temperature_2m_max: [19], temperature_2m_min: [9] },
+        daily: {
+          time: ['2026-11-04'],
+          weather_code: [3],
+          temperature_2m_max: [19],
+          temperature_2m_min: [9],
+          precipitation_probability_max: [80],
+        },
         hourly: { time: ['2026-11-04T20:00'], precipitation_probability: [80] },
       }),
     });
   });
+  await page.route('https://api.bigdatacloud.net/**', (route) =>
+    route.fulfill({ contentType: 'application/json', body: '{"city":"Lloc de prova"}' }),
+  );
   await page.getByRole('button', { name: 'Activa la meteo' }).click();
   await page.getByText('15°').waitFor();
   await page.getByText('Pluja cap a les 20:00').waitFor();
+  await page.locator('.weather__place', { hasText: 'Lloc de prova' }).waitFor();
   assert.match(url, /latitude=41\.39/);
   await context.close();
 }

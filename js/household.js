@@ -83,10 +83,10 @@ export const weatherUrl = (latitude, longitude) => {
     latitude: latitude.toFixed(2),
     longitude: longitude.toFixed(2),
     current: 'temperature_2m,weather_code',
-    daily: 'temperature_2m_max,temperature_2m_min',
+    daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max',
     hourly: 'precipitation_probability',
     timezone: TIME_ZONE,
-    forecast_days: '1',
+    forecast_days: '7',
   });
   return `https://api.open-meteo.com/v1/forecast?${params}`;
 };
@@ -107,12 +107,28 @@ const WEATHER_LABELS = [
 export const weatherLabel = (code) =>
   WEATHER_LABELS.find(([limit]) => code <= limit)?.[1] ?? 'Temps variable';
 
+/** Nom del lloc a partir de les coordenades, sense necessitat de clau. */
+export const placeUrl = (latitude, longitude) => {
+  const params = new URLSearchParams({
+    latitude: latitude.toFixed(2),
+    longitude: longitude.toFixed(2),
+    localityLanguage: 'ca',
+  });
+  return `https://api.bigdatacloud.net/data/reverse-geocode-client?${params}`;
+};
+
+export const readPlace = (data) =>
+  data.city || data.locality || data.principalSubdivision || '';
+
 /** Primera hora d'avui, a partir d'ara, amb un 50% o més de probabilitat de pluja. */
 export const nextRain = (hourly, currentTime) => {
   const hour = currentTime.slice(0, 13);
+  const today = currentTime.slice(0, 10);
   const index = hourly.time.findIndex(
     (time, position) =>
-      time.slice(0, 13) >= hour && hourly.precipitation_probability[position] >= 50,
+      time.slice(0, 10) === today &&
+      time.slice(0, 13) >= hour &&
+      hourly.precipitation_probability[position] >= 50,
   );
   return index === -1 ? null : hourly.time[index].slice(11, 16);
 };
@@ -123,4 +139,11 @@ export const readWeather = (data) => ({
   min: Math.round(data.daily.temperature_2m_min[0]),
   label: weatherLabel(data.current.weather_code),
   rainAt: nextRain(data.hourly, data.current.time),
+  days: data.daily.time.map((date, index) => ({
+    date,
+    label: weatherLabel(data.daily.weather_code[index]),
+    max: Math.round(data.daily.temperature_2m_max[index]),
+    min: Math.round(data.daily.temperature_2m_min[index]),
+    rain: data.daily.precipitation_probability_max[index],
+  })),
 });

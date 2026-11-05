@@ -1,6 +1,6 @@
 import { config } from './config.js';
 import { demoWeather } from './demo.js';
-import { readWeather, shoppingMessage, weatherUrl } from './household.js';
+import { placeUrl, readPlace, readWeather, shoppingMessage, weatherUrl } from './household.js';
 import { todayInMadrid } from './lunch.js';
 import {
   currentSubscription,
@@ -29,7 +29,7 @@ const SCREENS = {
 };
 
 const SNAPSHOT_KEY = 'family-snapshot';
-const WEATHER_KEY = 'family-weather';
+const WEATHER_KEY = 'family-weather-v2';
 const WEATHER_MAX_AGE = 30 * 60 * 1000;
 
 const state = {
@@ -149,6 +149,13 @@ async function loadWeather({ ask }) {
     const response = await fetch(weatherUrl(latitude, longitude));
     if (!response.ok) throw new Error('meteo');
     state.weather = readWeather(await response.json());
+    // El nom del lloc és un afegit: si falla, la meteo es mostra igualment.
+    try {
+      const place = await fetch(placeUrl(latitude, longitude));
+      if (place.ok) state.weather.place = readPlace(await place.json());
+    } catch {
+      state.weather.place = '';
+    }
     save(WEATHER_KEY, { at: Date.now(), weather: state.weather });
   } catch (error) {
     state.weather = {
@@ -232,6 +239,10 @@ const ACTIONS = {
     await change(() => store.setAssignee(event, member, isTrue(next)));
     render();
   },
+  'open-weather': () => {
+    state.sheet = { type: 'weather' };
+    render();
+  },
   'open-event': ({ event }) => {
     state.sheet = { type: 'event', uid: event };
     render();
@@ -287,6 +298,12 @@ const FORMS = {
 };
 
 root.addEventListener('click', (event) => {
+  // Tocar fora d'una finestra la tanca sense canviar res.
+  if (event.target.classList.contains('sheet')) {
+    state.sheet = null;
+    render();
+    return;
+  }
   const button = event.target.closest('[data-action]');
   if (button) ACTIONS[button.dataset.action]?.(button.dataset);
 });

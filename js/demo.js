@@ -1,6 +1,6 @@
 // Dades inventades per al mode demostració. Aquest fitxer és públic:
 // no hi posis mai noms ni dades reals.
-import { addDays, madridInstant, weekDates } from './lunch.js';
+import { addDays, madridInstant, todayInMadrid, weekDates } from './lunch.js';
 
 const everyWeekday = (memberId, days) =>
   days.map((weekday) => ({
@@ -70,4 +70,12 @@ export const demoWeather = {
   min: 11,
   label: 'Ennuvolat a estones',
   rainAt: '18:00',
+  place: 'Lloc d\'exemple',
+  days: Array.from({ length: 7 }, (_, index) => ({
+    date: addDays(todayInMadrid(), index),
+    label: index % 3 === 2 ? 'Pluja' : 'Ennuvolat a estones',
+    max: 20 - index % 3,
+    min: 11 + index % 2,
+    rain: index % 3 === 2 ? 70 : 20,
+  })),
 };

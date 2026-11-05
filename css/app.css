@@ -53,6 +53,17 @@ ul, ol { list-style: none; }
   text-align: center;
 }
 
+.banner--offline {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 12px 16px;
+  background: #B42318;
+  color: #FFFFFF;
+  font-size: 15px;
+  font-weight: 700;
+}
+
 .content {
   flex: 1;
   padding: 20px 16px 16px;
@@ -314,6 +325,33 @@ ul, ol { list-style: none; }
   gap: 10px;
 }
 .card--weather a { color: #D7EFE6; font-size: 11px; }
+.weather__open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.weather__place { display: block; margin-bottom: 6px; color: #D7EFE6; font-size: 14px; font-weight: 700; }
+.weather__now > div > span { display: block; }
+
+.forecast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 50px;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+.forecast:last-child { border-bottom: 0; }
+.forecast__day { width: 56px; flex: none; font-weight: 700; }
+.forecast__label { flex: 1; min-width: 0; font-weight: 600; }
+.forecast__label small { display: block; color: var(--muted); font-size: 12px; font-weight: 500; }
+.forecast__range { flex: none; font-weight: 700; }
+.source { color: var(--muted); font-size: 11px; }
+
 .weather__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .weather__now { display: flex; align-items: center; gap: 12px; color: var(--sun); }
 .weather__now b { display: block; color: #FFFFFF; font-family: var(--display); font-size: 36px; line-height: 1; }
@@ -393,6 +431,7 @@ ul, ol { list-style: none; }
 .card--next strong { display: block; font-size: 17px; }
 
 .link-button {
+  border: 0;
   min-height: 44px;
   padding: 0 12px;
   flex: none;

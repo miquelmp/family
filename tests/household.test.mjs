@@ -11,6 +11,8 @@ import {
   nextEvent,
   nextRain,
   pendingTasks,
+  placeUrl,
+  readPlace,
   readWeather,
   shoppingMessage,
   toBuy,
@@ -84,6 +86,21 @@ test('la meteo no envia la ubicació exacta', () => {
   assert.equal(url.searchParams.get('timezone'), 'Europe/Madrid');
 });
 
+test('la pluja d\'avui no es confon amb la dels pròxims dies', () => {
+  const hourly = {
+    time: ['2026-11-04T18:00', '2026-11-05T09:00'],
+    precipitation_probability: [10, 90],
+  };
+  assert.equal(nextRain(hourly, '2026-11-04T12:15'), null);
+});
+
+test('el nom del lloc es tria de la resposta', () => {
+  assert.equal(readPlace({ city: 'Girona', locality: 'Centre' }), 'Girona');
+  assert.equal(readPlace({ city: '', locality: 'Centre' }), 'Centre');
+  assert.equal(readPlace({}), '');
+  assert.ok(placeUrl(41.98123, 2.82111).includes('latitude=41.98'));
+});
+
 test('la pluja es busca a partir de l\'hora actual', () => {
   const hourly = {
     time: ['2026-11-04T10:00', '2026-11-04T14:00', '2026-11-04T18:00'],
@@ -96,10 +113,23 @@ test('la pluja es busca a partir de l\'hora actual', () => {
 test('la resposta d\'Open-Meteo es tradueix', () => {
   const weather = readWeather({
     current: { temperature_2m: 16.6, weather_code: 61, time: '2026-11-04T12:15' },
-    daily: { temperature_2m_max: [20.4], temperature_2m_min: [10.5] },
+    daily: {
+      time: ['2026-11-04'],
+      weather_code: [61],
+      temperature_2m_max: [20.4],
+      temperature_2m_min: [10.5],
+      precipitation_probability_max: [70],
+    },
     hourly: { time: ['2026-11-04T18:00'], precipitation_probability: [70] },
   });
-  assert.deepEqual(weather, { temperature: 17, max: 20, min: 11, label: 'Pluja', rainAt: '18:00' });
+  assert.deepEqual(weather, {
+    temperature: 17,
+    max: 20,
+    min: 11,
+    label: 'Pluja',
+    rainAt: '18:00',
+    days: [{ date: '2026-11-04', label: 'Pluja', max: 20, min: 11, rain: 70 }],
+  });
   assert.equal(weatherLabel(0), 'Cel serè');
   assert.equal(weatherLabel(95), 'Tempesta');
 });
