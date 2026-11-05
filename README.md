@@ -73,6 +73,15 @@ Una cita només s'avisa als membres marcats a l'app. Si no n'hi ha, als convidat
    i `FAMILY_VAPID_SUBJECT`, amb el format `mailto:el-teu-correu`.
 5. Executa una còpia de `supabase/reminders.example.sql` amb el secret real.
 
+### 9. Grup de WhatsApp (opcional)
+
+Amb l'enllaç d'invitació del grup, l'app copia la llista i obre el grup:
+
+```sql
+insert into family.settings (key, value)
+values ('whatsapp_group_url', 'ENLLAÇ_D_INVITACIÓ');
+```
+
 ## Separació de simlabedu
 
 - Totes les taules van a l'esquema `family`, i cap a `public`.

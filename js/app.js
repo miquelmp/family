@@ -40,6 +40,7 @@ const state = {
   weeklyLunches: [],
   overrides: [],
   menus: [],
+  settings: [],
   agenda: [],
   assignees: [],
   shopping: [],
@@ -213,6 +214,20 @@ async function disablePush() {
   await loadPushState();
 }
 
+const groupLink = () =>
+  state.settings.find((row) => row.key === 'whatsapp_group_url')?.value;
+
+async function shareToGroup() {
+  try {
+    await navigator.clipboard.writeText(shoppingMessage(state.shopping));
+  } catch {
+    showNotice('No s\'ha pogut copiar la llista.');
+    return;
+  }
+  showNotice('Llista copiada. Enganxa-la al grup.');
+  window.open(groupLink(), '_blank', 'noopener');
+}
+
 function exportData() {
   const { members, weeklyLunches, overrides, menus, agenda, assignees, shopping, tasks } = state;
   const content = JSON.stringify(
@@ -272,6 +287,7 @@ const ACTIONS = {
   'enable-push': enablePush,
   'disable-push': disablePush,
   'share-list': shareList,
+  'share-group': shareToGroup,
   'export-data': exportData,
   'sign-in': signIn,
   'sign-out': async () => {

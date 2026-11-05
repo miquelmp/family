@@ -31,7 +31,15 @@ const ICONS = {
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"></path>',
   share: '<path d="M21 11.5a8.5 8.5 0 0 1-12.6 7.4L3 21l2.1-5.3A8.5 8.5 0 1 1 21 11.5z"></path>',
   cloud: '<path d="M7 19h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 10.5 4.3 4.3 0 0 0 7 19z"></path>',
+  sun: '<circle cx="12" cy="12" r="4.5"></circle><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M5 5l1.8 1.8M17.2 17.2L19 19M5 19l1.8-1.8M17.2 6.8L19 5"></path>',
+  partly: '<circle cx="8.5" cy="8.5" r="3.5"></circle><path d="M8.5 2v1.5M2 8.5h1.5M3.8 3.8l1 1M13.2 3.8l-1 1"></path><path d="M9 20h8.5a3.5 3.5 0 0 0 .4-7 5 5 0 0 0-9.5-.6A3.8 3.8 0 0 0 9 20z"></path>',
+  fog: '<path d="M7 13h10a3.5 3.5 0 0 0 .4-7A5.5 5.5 0 0 0 6.6 6 3.5 3.5 0 0 0 7 13z"></path><path d="M4 17h16M7 21h10"></path>',
+  rain: '<path d="M7 15h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 6.5 4.3 4.3 0 0 0 7 15z"></path><path d="M8 18l-1 3M13 18l-1 3M18 18l-1 3"></path>',
+  snow: '<path d="M7 14h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 5.5 4.3 4.3 0 0 0 7 14z"></path><path d="M8 18h.01M12 20h.01M16 18h.01M10 22h.01M14 22h.01"></path>',
+  storm: '<path d="M7 14h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 5.5 4.3 4.3 0 0 0 7 14z"></path><path d="M13 13l-3 5h4l-3 4"></path>',
 };
+
+const weatherIcon = (kind, size) => icon(ICONS[kind] ?? ICONS.cloud, size);
 
 const TABS = [
   { id: 'avui', label: 'Avui' },
@@ -111,6 +119,7 @@ function weatherSheet({ weather }) {
       (day, index) => `
         <li class="forecast">
           <span class="forecast__day">${index === 0 ? 'Avui' : escapeHtml(formatDate(day.date, { weekday: 'short', day: 'numeric' }))}</span>
+          <span class="forecast__icon">${weatherIcon(day.kind, 26)}</span>
           <span class="forecast__label">${escapeHtml(day.label)}<small>Pluja ${day.rain}%</small></span>
           <span class="forecast__range">${day.max}° / ${day.min}°</span>
         </li>`,
@@ -212,7 +221,7 @@ function weatherCard(state) {
       ${weather.place ? `<span class="weather__place">${escapeHtml(weather.place)}</span>` : ''}
       <div class="weather__top">
         <div class="weather__now">
-          ${icon(ICONS.cloud, 42)}
+          ${weatherIcon(weather.kind, 42)}
           <div>
             <b>${weather.temperature}°</b>
             <span>${escapeHtml(weather.label)}</span>
@@ -564,9 +573,16 @@ export function homeScreen(state) {
         <input id="new-product" name="name" placeholder="Afegeix un producte" maxlength="60" required autocomplete="off">
         <button class="secondary">Afegeix</button>
       </form>
-      <button class="primary" data-action="share-list" ${list.length ? '' : 'disabled'}>
-        ${icon(ICONS.share, 20)} Comparteix al grup de WhatsApp
-      </button>
+      ${
+        state.settings.some((row) => row.key === 'whatsapp_group_url')
+          ? `<button class="primary" data-action="share-group" ${list.length ? '' : 'disabled'}>
+              ${icon(ICONS.share, 20)} Copia la llista i obre el grup
+            </button>
+            <button class="text-button" data-action="share-list" ${list.length ? '' : 'disabled'}>Comparteix amb una altra persona</button>`
+          : `<button class="primary" data-action="share-list" ${list.length ? '' : 'disabled'}>
+              ${icon(ICONS.share, 20)} Comparteix a WhatsApp
+            </button>`
+      }
     </section>
 
     <section class="card" aria-label="Productes habituals">

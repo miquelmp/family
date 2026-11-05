@@ -18,6 +18,7 @@ import {
   toBuy,
   usualByCategory,
   visibleTasks,
+  weatherKind,
   weatherLabel,
   weatherUrl,
 } from '../js/household.js';
@@ -94,6 +95,11 @@ test('la pluja d\'avui no es confon amb la dels pròxims dies', () => {
   assert.equal(nextRain(hourly, '2026-11-04T12:15'), null);
 });
 
+test('cada codi meteorològic té la seva icona', () => {
+  const kinds = [0, 2, 3, 45, 61, 73, 81, 86, 95].map(weatherKind);
+  assert.deepEqual(kinds, ['sun', 'partly', 'cloud', 'fog', 'rain', 'snow', 'rain', 'snow', 'storm']);
+});
+
 test('el nom del lloc es tria de la resposta', () => {
   assert.equal(readPlace({ city: 'Girona', locality: 'Centre' }), 'Girona');
   assert.equal(readPlace({ city: '', locality: 'Centre' }), 'Centre');
@@ -127,8 +133,9 @@ test('la resposta d\'Open-Meteo es tradueix', () => {
     max: 20,
     min: 11,
     label: 'Pluja',
+    kind: 'rain',
     rainAt: '18:00',
-    days: [{ date: '2026-11-04', label: 'Pluja', max: 20, min: 11, rain: 70 }],
+    days: [{ date: '2026-11-04', label: 'Pluja', kind: 'rain', max: 20, min: 11, rain: 70 }],
   });
   assert.equal(weatherLabel(0), 'Cel serè');
   assert.equal(weatherLabel(95), 'Tempesta');

@@ -40,6 +40,7 @@ export const demoData = (today) => ({
     ...everyWeekday('p3', [2, 3, 4, 6, 7]),
     ...everyWeekday('p4', [4, 5, 6, 7]),
   ],
+  settings: [],
   overrides: [],
   assignees: [{ event_uid: 'a1', member_id: 'p3' }],
   menus: weekDates(today)
@@ -69,11 +70,13 @@ export const demoWeather = {
   max: 20,
   min: 11,
   label: 'Ennuvolat a estones',
+  kind: 'partly',
   rainAt: '18:00',
   place: 'Lloc d\'exemple',
   days: Array.from({ length: 7 }, (_, index) => ({
     date: addDays(todayInMadrid(), index),
     label: index % 3 === 2 ? 'Pluja' : 'Ennuvolat a estones',
+    kind: index % 3 === 2 ? 'rain' : 'partly',
     max: 20 - index % 3,
     min: 11 + index % 2,
     rain: index % 3 === 2 ? 70 : 20,

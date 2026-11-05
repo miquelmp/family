@@ -155,6 +155,31 @@ select pg_temp.expect_denied(
   $sql$insert into family.event_assignees (event_uid, member_id)
        values ('intrusio', '00000000-0000-0000-0000-000000000002')$sql$);
 
+-- La configuració és de lectura per als membres i invisible per a la resta.
+insert into family.settings (key, value) values ('prova', 'valor');
+
+do $$
+declare
+  visible bigint;
+begin
+  perform set_config('request.jwt.claims', '{"email":"alie@example.com"}', true);
+  set local role authenticated;
+  select count(*) into visible from family.settings;
+  reset role;
+  assert visible = 0, 'Un compte aliè no ha de veure la configuració';
+
+  perform set_config('request.jwt.claims', '{"email":"segon@example.com"}', true);
+  set local role authenticated;
+  select count(*) into visible from family.settings;
+  reset role;
+  assert visible = 1, 'Un membre ha de veure la configuració';
+end;
+$$;
+
+select pg_temp.expect_denied(
+  'authenticated', '{"email":"membre@example.com"}',
+  'update family.settings set value = ''x''');
+
 -- No es poden duplicar productes, ni canviant majúscules.
 do $$
 begin

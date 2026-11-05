@@ -104,6 +104,17 @@ const WEATHER_LABELS = [
   [99, 'Tempesta'],
 ];
 
+/** Tipus d'icona de cada codi meteorològic. */
+export const weatherKind = (code) => {
+  if (code === 0) return 'sun';
+  if (code <= 2) return 'partly';
+  if (code === 3) return 'cloud';
+  if (code <= 48) return 'fog';
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 'snow';
+  if (code >= 95) return 'storm';
+  return 'rain';
+};
+
 export const weatherLabel = (code) =>
   WEATHER_LABELS.find(([limit]) => code <= limit)?.[1] ?? 'Temps variable';
 
@@ -138,10 +149,12 @@ export const readWeather = (data) => ({
   max: Math.round(data.daily.temperature_2m_max[0]),
   min: Math.round(data.daily.temperature_2m_min[0]),
   label: weatherLabel(data.current.weather_code),
+  kind: weatherKind(data.current.weather_code),
   rainAt: nextRain(data.hourly, data.current.time),
   days: data.daily.time.map((date, index) => ({
     date,
     label: weatherLabel(data.daily.weather_code[index]),
+    kind: weatherKind(data.daily.weather_code[index]),
     max: Math.round(data.daily.temperature_2m_max[index]),
     min: Math.round(data.daily.temperature_2m_min[index]),
     rain: data.daily.precipitation_probability_max[index],

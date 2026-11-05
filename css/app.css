@@ -347,6 +347,7 @@ ul, ol { list-style: none; }
 }
 .forecast:last-child { border-bottom: 0; }
 .forecast__day { width: 56px; flex: none; font-weight: 700; }
+.forecast__icon { flex: none; display: flex; color: #0F766E; }
 .forecast__label { flex: 1; min-width: 0; font-weight: 600; }
 .forecast__label small { display: block; color: var(--muted); font-size: 12px; font-weight: 500; }
 .forecast__range { flex: none; font-weight: 700; }

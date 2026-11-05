@@ -52,6 +52,8 @@ async function checkDemo(width) {
   assert.ok(await page.getByText('Weather data by Open-Meteo.com').isVisible());
   assert.ok(await noSideScroll(page), `scroll horitzontal a Avui (${width})`);
 
+  assert.equal(await page.getByRole('button', { name: 'Comparteix a WhatsApp' }).count(), 0);
+
   // Marcar tothom fa aparèixer "Tots junts".
   while (await page.locator('.lunch-toggle--away').count()) {
     await page.locator('.lunch-toggle--away').first().click();
@@ -62,6 +64,7 @@ async function checkDemo(width) {
   await page.getByRole('button', { name: 'Veure la previsió' }).click();
   await page.getByRole('dialog', { name: 'Previsió' }).waitFor();
   assert.equal(await page.locator('.forecast').count(), 7);
+  assert.equal(await page.locator('.forecast__icon svg').count(), 7);
   await page.mouse.click(width / 2, 20);
   await page.waitForFunction(() => !document.querySelector('.sheet'));
 
@@ -171,7 +174,7 @@ const fakeSupabase = (scenario) => `
   const tables = window.tables = {
     members: scenario.members ?? [], weekly_lunches: [], lunch_overrides: [], menus: [],
     agenda_events: scenario.agenda ?? [], shopping_items: scenario.shopping ?? [], tasks: [],
-    push_subscriptions: [], event_assignees: [],
+    push_subscriptions: [], event_assignees: [], settings: scenario.settings ?? [],
   };
   window.calls = [];
   const query = (name) => {
@@ -519,6 +522,31 @@ async function checkSmartThings() {
   await iphone.context.close();
 }
 
+async function checkGroupShare() {
+  const { page, context } = await realMode(
+    {
+      session: session('una@example.com'),
+      members,
+      settings: [{ key: 'whatsapp_group_url', value: 'https://chat.whatsapp.com/PROVA' }],
+      shopping: [{ id: 'u1', name: 'Cafè', category: 'Begudes', is_usual: true, on_list: true }],
+    },
+    { permissions: ['clipboard-read', 'clipboard-write'] },
+    (setup) => setup.addInitScript(() => {
+      window.open = (url) => { window.opened = url; };
+    }),
+  );
+  await page.click('a[href="#casa"]');
+  await page.getByRole('button', { name: 'Copia la llista i obre el grup' }).click();
+  await page.waitForFunction(() => window.opened);
+  assert.equal(await page.evaluate(() => window.opened), 'https://chat.whatsapp.com/PROVA');
+  assert.equal(
+    await page.evaluate(() => navigator.clipboard.readText()),
+    'Llista de la compra:\n- Cafè',
+  );
+  assert.equal(await page.getByRole('button', { name: 'Comparteix amb una altra persona' }).count(), 1);
+  await context.close();
+}
+
 async function checkOfflineShell() {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
@@ -579,6 +607,7 @@ await checkWeather();
 await checkWeatherDenied();
 await checkPush();
 await checkSmartThings();
+await checkGroupShare();
 await checkOfflineShell();
 await checkUpdate();
 await screenshots();

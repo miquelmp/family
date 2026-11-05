@@ -80,7 +80,7 @@ export function createSupabaseStore(client) {
 
   return {
     async load() {
-      const [members, weeklyLunches, overrides, menus, agenda, assignees, shopping, tasks] = await Promise.all([
+      const [members, weeklyLunches, overrides, menus, agenda, assignees, shopping, tasks, settings] = await Promise.all([
         table('members').select('id, email, display_name, short_label, color, sort_order').order('sort_order'),
         table('weekly_lunches').select('*').order('valid_from'),
         table('lunch_overrides').select('*').order('lunch_date'),
@@ -89,6 +89,7 @@ export function createSupabaseStore(client) {
         table('event_assignees').select('*').order('event_uid'),
         table('shopping_items').select('*').order('name'),
         table('tasks').select('*').order('created_at'),
+        table('settings').select('*').order('key'),
       ]);
       return {
         members: check(members),
@@ -99,6 +100,8 @@ export function createSupabaseStore(client) {
         assignees: check(assignees),
         shopping: check(shopping),
         tasks: check(tasks),
+        // La configuració és opcional: sense ella, l'app funciona igualment.
+        settings: settings.error ? [] : settings.data,
       };
     },
 
