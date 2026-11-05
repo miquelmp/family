@@ -9,6 +9,7 @@ import {
   subscriptionRow,
 } from './push.js';
 import {
+  dashboardScreen,
   errorScreen,
   homeScreen,
   notMemberScreen,
@@ -27,6 +28,8 @@ const SCREENS = {
   horari: scheduleScreen,
   casa: homeScreen,
 };
+
+const wideScreen = window.matchMedia('(min-width: 1000px) and (orientation: landscape)');
 
 const SNAPSHOT_KEY = 'family-snapshot';
 const WEATHER_KEY = 'family-weather-v2';
@@ -82,9 +85,17 @@ const forget = (key) => {
 
 function render({ keepScroll = true } = {}) {
   const scroll = window.scrollY;
-  const screen = SCREENS[location.hash.slice(1)] ?? todayScreen;
+  const columns = [...root.querySelectorAll('.column')].map((column) => column.scrollTop);
+  const name = location.hash.slice(1);
+  // La setmana tipus és una pantalla pròpia també a la tauleta.
+  const screen = wideScreen.matches && name !== 'horari'
+    ? dashboardScreen
+    : (SCREENS[name] ?? todayScreen);
   root.innerHTML = screen(state);
   window.scrollTo(0, keepScroll ? scroll : 0);
+  root.querySelectorAll('.column').forEach((column, index) => {
+    column.scrollTop = columns[index] ?? 0;
+  });
 }
 
 const isTyping = () =>
@@ -135,7 +146,9 @@ async function loadWeather({ ask }) {
     return;
   }
   const saved = readSaved(WEATHER_KEY);
-  if (saved && Date.now() - saved.at < WEATHER_MAX_AGE) {
+  // Les dades desades abans d'afegir les icones no serveixen.
+  const usable = saved?.weather?.days?.[0]?.kind;
+  if (usable && Date.now() - saved.at < WEATHER_MAX_AGE) {
     state.weather = saved.weather;
     render();
     return;
@@ -332,6 +345,11 @@ root.addEventListener('submit', (event) => {
   state.sheet = null;
   document.activeElement?.blur();
   change(() => FORMS[name](data, dataset));
+});
+
+// En girar la tauleta canvia la distribució.
+wideScreen.addEventListener('change', () => {
+  if (store) render({ keepScroll: false });
 });
 
 window.addEventListener('hashchange', () => {

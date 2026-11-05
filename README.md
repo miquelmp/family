@@ -92,6 +92,10 @@ values ('whatsapp_group_url', 'ENLLAÇ_D_INVITACIÓ');
 Per traslladar-ho a un projecte propi: executa la migració al projecte nou, copia les dades,
 torna a configurar l'entrada i canvia `js/config.js`. Cada membre haurà de tornar a entrar.
 
+## Vistes
+
+En pantalles apaisades d'almenys 1000 px, com una tauleta, Avui, Setmana i Casa surten una al costat de l'altra.
+
 ## Proves
 
 ```sh

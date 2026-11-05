@@ -68,6 +68,18 @@ function avatar(member, { size = 'md', present = true } = {}) {
 const dishOn = (state, date) =>
   state.menus.find((row) => row.lunch_date === date)?.dish ?? '';
 
+const banner = (state) => {
+  if (state.offline) {
+    return '<p class="banner banner--offline" role="status">Sense connexió. Veus les últimes dades desades i no pots fer canvis.</p>';
+  }
+  return state.demo
+    ? '<p class="banner">Mode demostració: dades inventades que no es desen.</p>'
+    : '';
+};
+
+const notice = (state) =>
+  state.notice ? `<p class="notice" role="status">${escapeHtml(state.notice)}</p>` : '';
+
 function shell(state, activeTab, content) {
   const tabs = TABS.map(
     (tab) => `
@@ -75,17 +87,11 @@ function shell(state, activeTab, content) {
         ${icon(ICONS[tab.id])}${tab.label}
       </a>`,
   ).join('');
-  const banner = state.offline
-    ? '<p class="banner banner--offline" role="status">Sense connexió. Veus les últimes dades desades i no pots fer canvis.</p>'
-    : state.demo
-      ? '<p class="banner">Mode demostració: dades inventades que no es desen.</p>'
-      : '';
-  const notice = state.notice ? `<p class="notice" role="status">${escapeHtml(state.notice)}</p>` : '';
   return `
     <div class="screen">
-      ${banner}
+      ${banner(state)}
       <main class="content">${content}</main>
-      ${notice}
+      ${notice(state)}
       <nav class="tabs" aria-label="Navegació">${tabs}</nav>
     </div>
     ${sheet(state)}`;
@@ -274,7 +280,7 @@ function agendaRows(state, events) {
     .join('');
 }
 
-export function todayScreen(state) {
+function todayContent(state) {
   const { today, members, weeklyLunches, overrides, agenda } = state;
   const atHomeCount = members.filter((member) =>
     isAtHome(member.id, today, weeklyLunches, overrides),
@@ -283,10 +289,7 @@ export function todayScreen(state) {
   const events = eventsOn(agenda, today);
   const dish = dishOn(state, today);
 
-  return shell(
-    state,
-    'avui',
-    `
+  return `
     <header class="header">
       <div>
         <h1>${escapeHtml(weekday[0].toUpperCase() + weekday.slice(1))}</h1>
@@ -324,9 +327,10 @@ export function todayScreen(state) {
       <a class="tile tile--lilac" href="#casa">
         <b>${pendingTasks(state.tasks).length}</b><span>Tasques pendents</span>
       </a>
-    </div>`,
-  );
+    </div>`;
 }
+
+export const todayScreen = (state) => shell(state, 'avui', todayContent(state));
 
 function nextEventCard(state) {
   const event = nextEvent(state.agenda, state.now);
@@ -346,7 +350,7 @@ function nextEventCard(state) {
     </section>`;
 }
 
-export function weekScreen(state) {
+function weekContent(state) {
   const { today, members, weeklyLunches, overrides, weekOffset } = state;
   const anchor = addDays(today, weekOffset * 7);
   const dates = weekDates(anchor);
@@ -394,10 +398,7 @@ export function weekScreen(state) {
     })
     .join('');
 
-  return shell(
-    state,
-    'setmana',
-    `
+  return `
     <header class="header">
       <div>
         <h1>Setmana</h1>
@@ -417,9 +418,10 @@ export function weekScreen(state) {
       <p class="hint">Toca una persona per a un canvi puntual.</p>
       <ol class="days">${rows}</ol>
     </section>
-    ${nextEventCard(state)}`,
-  );
+    ${nextEventCard(state)}`;
 }
+
+export const weekScreen = (state) => shell(state, 'setmana', weekContent(state));
 
 export function scheduleScreen(state) {
   const { today, members, weeklyLunches } = state;
@@ -498,7 +500,7 @@ function pushCard(state) {
     </section>`;
 }
 
-export function homeScreen(state) {
+function homeContent(state) {
   const byId = Object.fromEntries(state.members.map((member) => [member.id, member]));
   const list = toBuy(state.shopping);
 
@@ -551,10 +553,7 @@ export function homeScreen(state) {
     })
     .join('');
 
-  return shell(
-    state,
-    'casa',
-    `
+  return `
     <header class="header">
       <div>
         <h1>Casa</h1>
@@ -607,8 +606,24 @@ export function homeScreen(state) {
 
     <button class="secondary" data-action="export-data">Exporta les dades</button>
     ${state.demo ? '' : '<button class="text-button" data-action="sign-out">Tanca la sessió</button>'}
-    <p class="version">Versió ${APP_VERSION}</p>`,
-  );
+    <p class="version">Versió ${APP_VERSION}</p>`;
+}
+
+export const homeScreen = (state) => shell(state, 'casa', homeContent(state));
+
+/** Vista de tauleta apaisada: els tres blocs un al costat de l'altre. */
+export function dashboardScreen(state) {
+  return `
+    <div class="dashboard">
+      ${banner(state)}
+      <main class="columns">
+        <section class="column content" aria-label="Avui">${todayContent(state)}</section>
+        <section class="column content" aria-label="Setmana">${weekContent(state)}</section>
+        <section class="column content" aria-label="Casa">${homeContent(state)}</section>
+      </main>
+      ${notice(state)}
+    </div>
+    ${sheet(state)}`;
 }
 
 export function signInScreen() {

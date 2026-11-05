@@ -547,6 +547,34 @@ async function checkGroupShare() {
   await context.close();
 }
 
+async function checkTablet() {
+  const { page, context, errors } = await newPage(1280, { viewport: { width: 1280, height: 800 }, isMobile: false });
+  await page.goto(BASE_URL);
+  await page.waitForSelector('.columns');
+  assert.equal(await page.locator('.column').count(), 3);
+  assert.equal(await page.locator('.tabs').count(), 0);
+  assert.ok(await page.locator('.products').first().isVisible());
+  assert.ok(await page.locator('.days').isVisible());
+  assert.ok(await noSideScroll(page), 'scroll horitzontal a la tauleta');
+
+  // Un canvi a Casa no fa pujar la columna.
+  await page.locator('.column').nth(2).evaluate((column) => { column.scrollTop = 300; });
+  await page.locator('.product:not(.product--on)').first().click();
+  await page.waitForFunction(() => document.querySelectorAll('.column')[2].scrollTop === 300);
+
+  // En girar-la, torna a la vista de mòbil.
+  await page.setViewportSize({ width: 800, height: 1280 });
+  await page.waitForSelector('.tabs');
+  assert.equal(await page.locator('.column').count(), 0);
+  assert.deepEqual(errors, []);
+  if (SHOTS) {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.waitForSelector('.columns');
+    await page.screenshot({ path: `${SHOTS}/tauleta.png` });
+  }
+  await context.close();
+}
+
 async function checkOfflineShell() {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
@@ -608,6 +636,7 @@ await checkWeatherDenied();
 await checkPush();
 await checkSmartThings();
 await checkGroupShare();
+await checkTablet();
 await checkOfflineShell();
 await checkUpdate();
 await screenshots();
