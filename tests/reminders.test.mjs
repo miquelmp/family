@@ -98,6 +98,11 @@ test('la signatura VAPID és vàlida i indica el servei de destí', async () => 
   );
 });
 
+const members = [
+  { id: 'm1', email: 'una@example.com' },
+  { id: 'm2', email: 'dos@example.com' },
+];
+
 const agenda = [
   { title: 'Dentista', starts_at: '2026-11-05T08:30:00Z', all_day: false },
   { title: 'Festa', starts_at: '2026-11-04T23:00:00Z', all_day: true },
@@ -110,33 +115,55 @@ const tasks = [
   { title: 'Un altre dia', assignee_id: 'm2', due_date: '2026-11-06', done_at: null },
 ];
 
-test('al vespre avisa de les cites de demà', () => {
-  const reminders = buildReminders(new Date('2026-11-04T19:07:00Z'), agenda, tasks);
-  assert.deepEqual(reminders, [{
-    key: 'agenda-2026-11-05-vespre',
+test('al vespre avisa de les cites de demà a cada membre', () => {
+  const reminders = buildReminders(new Date('2026-11-04T19:07:00Z'), agenda, tasks, members);
+  assert.deepEqual(reminders[0], {
+    key: 'agenda-2026-11-05-vespre-m1',
     title: 'Demà',
     body: 'Festa\n09:30 Dentista',
-    memberId: null,
-  }]);
+    memberId: 'm1',
+  });
+  assert.equal(reminders[1].memberId, 'm2');
+  assert.equal(reminders.length, 2);
 });
 
 test('al matí avisa de les cites i les tasques d\'avui', () => {
-  const reminders = buildReminders(new Date('2026-11-05T07:07:00Z'), agenda, tasks);
+  const reminders = buildReminders(new Date('2026-11-05T07:07:00Z'), agenda, tasks, members);
   assert.deepEqual(reminders.map((item) => [item.key, item.body, item.memberId]), [
-    ['agenda-2026-11-05-mati', 'Festa\n09:30 Dentista', null],
+    ['agenda-2026-11-05-mati-m1', 'Festa\n09:30 Dentista', 'm1'],
+    ['agenda-2026-11-05-mati-m2', 'Festa\n09:30 Dentista', 'm2'],
     ['tasques-2026-11-05-m1', 'Rentadora', 'm1'],
     ['tasques-2026-11-05-tothom', 'Per a tothom', null],
   ]);
 });
 
+test('una cita amb convidats només s\'avisa a ells', () => {
+  const invited = [
+    { title: 'Metge', starts_at: '2026-11-05T08:30:00Z', all_day: false, attendee_emails: ['dos@example.com'] },
+    { title: 'Tothom', starts_at: '2026-11-05T10:30:00Z', all_day: false, attendee_emails: [] },
+  ];
+  const reminders = buildReminders(new Date('2026-11-05T07:07:00Z'), invited, [], members);
+  assert.deepEqual(reminders.map((item) => [item.memberId, item.body]), [
+    ['m1', '11:30 Tothom'],
+    ['m2', '09:30 Metge\n11:30 Tothom'],
+  ]);
+});
+
+test('si cap convidat és de la família, s\'avisa a tothom', () => {
+  const outside = [
+    { title: 'Reunió', starts_at: '2026-11-05T08:30:00Z', all_day: false, attendee_emails: ['fora@example.com'] },
+  ];
+  assert.equal(buildReminders(new Date('2026-11-05T07:07:00Z'), outside, [], members).length, 2);
+});
+
 test('l\'hora d\'enviar segueix l\'horari de Madrid a l\'estiu', () => {
   const summer = [{ title: 'Cita', starts_at: '2026-07-02T10:00:00Z', all_day: false }];
-  assert.equal(buildReminders(new Date('2026-07-01T18:07:00Z'), summer, []).length, 1);
-  assert.equal(buildReminders(new Date('2026-07-01T19:07:00Z'), summer, []).length, 0);
+  assert.equal(buildReminders(new Date('2026-07-01T18:07:00Z'), summer, [], members).length, 2);
+  assert.equal(buildReminders(new Date('2026-07-01T19:07:00Z'), summer, [], members).length, 0);
 });
 
 test('fora d\'hora no avisa de res', () => {
-  assert.deepEqual(buildReminders(new Date('2026-11-04T12:07:00Z'), agenda, tasks), []);
+  assert.deepEqual(buildReminders(new Date('2026-11-04T12:07:00Z'), agenda, tasks, members), []);
 });
 
 const browser = newBrowser();
@@ -173,6 +200,7 @@ function fakeServer({ claimed = [], pushStatus = 201 } = {}) {
         { endpoint: 'https://push.test/2', member_id: 'm2', p256dh: browser.p256dh, auth: browser.authText },
       ]);
     }
+    if (url.includes('/members')) return Response.json(members);
     if (url.includes('/agenda_events')) return Response.json(agenda);
     if (url.includes('/tasks')) return Response.json(tasks);
     if (url.includes('/sent_reminders')) {
@@ -195,7 +223,7 @@ test('sense el secret no s\'envia res', async () => {
 test('cada aviso arriba a qui toca, xifrat', async () => {
   const { fetcher, pushes } = fakeServer();
   const response = await handle(post('secret'), env, fetcher, morning);
-  assert.deepEqual(await response.json(), { reminders: 3, sent: 5 });
+  assert.deepEqual(await response.json(), { reminders: 4, sent: 5 });
 
   const titles = pushes.map((push) => [
     push.url,
@@ -214,7 +242,7 @@ test('cada aviso arriba a qui toca, xifrat', async () => {
 
 test('un aviso ja enviat no es repeteix', async () => {
   const { fetcher, pushes } = fakeServer({
-    claimed: ['agenda-2026-11-05-mati', 'tasques-2026-11-05-tothom'],
+    claimed: ['agenda-2026-11-05-mati-m1', 'agenda-2026-11-05-mati-m2', 'tasques-2026-11-05-tothom'],
   });
   await handle(post('secret'), env, fetcher, morning);
   assert.deepEqual(pushes.map((push) => push.url), ['https://push.test/1']);

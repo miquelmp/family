@@ -36,7 +36,42 @@ test('cita normal amb zona horària', () => {
     starts_at: '2026-11-10T08:30:00.000Z',
     ends_at: '2026-11-10T09:15:00.000Z',
     all_day: false,
+    attendee_emails: [],
   }]);
+});
+
+test('els convidats es llegeixen, excepte els que han refusat', () => {
+  const [row] = parseIcal(
+    calendar([
+      'UID:a', 'DTSTART:20261110T083000Z',
+      'ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;CN=Una;X-NUM-GUESTS=0:mailto:Una@Example.com',
+      'ATTENDEE;PARTSTAT=NEEDS-ACTION;CN="Dos: amb punts":mailto:dos@example.com',
+      'ATTENDEE;PARTSTAT=DECLINED;CN=No:mailto:no@example.com',
+    ]),
+    now,
+  );
+  assert.deepEqual(row.attendee_emails, ['una@example.com', 'dos@example.com']);
+});
+
+test('un convidat en línies plegades es llegeix sencer', () => {
+  const [row] = parseIcal(
+    'BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:a\r\nDTSTART:20261110T083000Z\r\n'
+      + 'ATTENDEE;PARTSTAT=ACCEPTED;CN=Una persona amb un nom força llarg:mailto:una@exam\r\n ple.com\r\n'
+      + 'END:VEVENT\r\nEND:VCALENDAR\r\n',
+    now,
+  );
+  assert.deepEqual(row.attendee_emails, ['una@example.com']);
+});
+
+test('les repeticions conserven els convidats', () => {
+  const rows = parseIcal(
+    calendar([
+      'UID:a', 'DTSTART:20261109T083000Z', 'RRULE:FREQ=WEEKLY;COUNT=2',
+      'ATTENDEE;PARTSTAT=ACCEPTED:mailto:una@example.com',
+    ]),
+    now,
+  );
+  assert.deepEqual(rows.map((row) => row.attendee_emails), [['una@example.com'], ['una@example.com']]);
 });
 
 test('cita en UTC', () => {

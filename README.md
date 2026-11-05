@@ -63,6 +63,7 @@ La funció `family-agenda-sync` copia els propers 60 dies del calendari Family.
 ### 8. Avisos
 
 La funció `family-reminders` envia a les 8 h les cites i tasques del dia, i a les 20 h les cites de demà.
+Una cita amb convidats de la família només s'avisa a ells; sense convidats, s'avisa a tothom.
 
 1. Genera les claus a `tools/vapid.html`.
 2. Afegeix la clau pública a `js/config.js`, com a `vapidPublicKey`.

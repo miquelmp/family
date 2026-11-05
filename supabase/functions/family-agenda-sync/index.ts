@@ -85,11 +85,18 @@ function readEvents(text) {
 
   for (const line of lines) {
     if (line === 'BEGIN:VEVENT') {
-      current = { exdates: [] };
+      current = { exdates: [], attendees: [] };
     } else if (line === 'END:VEVENT') {
       if (current) events.push(current);
       current = null;
     } else if (current) {
+      // El nom d'un convidat pot contenir dos punts: el correu es llegeix del final.
+      if (line.startsWith('ATTENDEE')) {
+        const email = /mailto:([^:;]+)$/i.exec(line)?.[1]?.toLowerCase();
+        if (email && !/PARTSTAT=DECLINED/i.test(line)) current.attendees.push(email);
+        continue;
+      }
+
       const colon = line.indexOf(':');
       if (colon === -1) continue;
       const [name, ...rawParams] = line.slice(0, colon).split(';');
@@ -208,6 +215,7 @@ const toRow = (event, uid, date, duration) => {
     starts_at: (allDay ? firstDay : startsAt).toISOString(),
     ends_at: endsAt ? endsAt.toISOString() : null,
     all_day: allDay,
+    attendee_emails: event.attendees,
   };
 };
 
