@@ -6,6 +6,7 @@ import {
   readWeather,
   shoppingMessage,
   swipeTarget,
+  unreadNews,
   weatherUrl,
 } from './household.js';
 import { todayInMadrid } from './lunch.js';
@@ -14,6 +15,7 @@ import {
   pushSupported,
   subscribeToPush,
   subscriptionRow,
+  syncNotifications,
 } from './push.js';
 import {
   dashboardScreen,
@@ -51,6 +53,7 @@ const state = {
   overrides: [],
   menus: [],
   settings: [],
+  inbox: [],
   agenda: [],
   assignees: [],
   shopping: [],
@@ -114,7 +117,10 @@ async function refresh() {
   try {
     const data = await store.load();
     Object.assign(state, data, { offline: false });
-    if (!state.demo) save(SNAPSHOT_KEY, data);
+    if (!state.demo) {
+      save(SNAPSHOT_KEY, data);
+      syncNotifications(unreadNews(data.inbox).map((item) => item.id)).catch(() => {});
+    }
   } catch (error) {
     const saved = readSaved(SNAPSHOT_KEY);
     if (!saved) throw error;
@@ -249,9 +255,9 @@ async function shareToGroup() {
 }
 
 function exportData() {
-  const { members, weeklyLunches, overrides, menus, agenda, assignees, shopping, tasks } = state;
+  const { members, weeklyLunches, overrides, menus, agenda, assignees, shopping, tasks, inbox } = state;
   const content = JSON.stringify(
-    { exported_at: new Date().toISOString(), members, weeklyLunches, overrides, menus, agenda, assignees, shopping, tasks },
+    { exported_at: new Date().toISOString(), members, weeklyLunches, overrides, menus, agenda, assignees, shopping, tasks, inbox },
     null,
     2,
   );
@@ -272,6 +278,16 @@ const ACTIONS = {
     change(() => store.setWeekly(member, Number(weekday), state.today, isTrue(next))),
   'toggle-assignee': async ({ event, member, next }) => {
     await change(() => store.setAssignee(event, member, isTrue(next)));
+    render();
+  },
+  'open-news': async ({ id, target }) => {
+    await change(() => store.markRead([id]));
+    if (location.hash.slice(1) !== target) location.hash = target;
+  },
+  'read-all-news': () =>
+    change(() => store.markRead(unreadNews(state.inbox).map((item) => item.id))),
+  'show-news': () => {
+    state.sheet = { type: 'news' };
     render();
   },
   'open-weather': () => {

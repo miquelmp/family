@@ -179,6 +179,7 @@ function agendaReminders(agenda, members, assignees, date, title, moment) {
       title,
       body: own.map(agendaLine).join('\n'),
       memberId: member.id,
+      target: 'setmana',
     }];
   });
 }
@@ -210,6 +211,7 @@ export function buildReminders(now, agenda, tasks, members, assignees = []) {
         title: 'Tasques d\'avui',
         body: titles.join('\n'),
         memberId,
+        target: 'casa',
       });
     }
   }
@@ -257,6 +259,25 @@ export async function handle(request, env, fetcher = fetch, now = new Date()) {
     return response.json();
   };
 
+  // Una còpia de l'aviso per a cada membre, que l'app mostra a Novetats.
+  const addToInbox = async (reminder, recipients) => {
+    if (!recipients.length) return [];
+    const saved = await fetcher(`${rest}/reminder_inbox`, {
+      method: 'POST',
+      headers: { ...headers, prefer: 'return=representation' },
+      body: JSON.stringify(
+        recipients.map((member) => ({
+          member_id: member.id,
+          title: reminder.title,
+          body: reminder.body,
+          target: reminder.target,
+        })),
+      ),
+    });
+    if (!saved.ok) throw new Error(`desar novetats: ${saved.status}`);
+    return saved.json();
+  };
+
   const input = await request.json().catch(() => ({}));
   const [subscriptions, agenda, tasks, members, assignees] = await Promise.all([
     read('push_subscriptions?select=*'),
@@ -283,12 +304,22 @@ export async function handle(request, env, fetcher = fetch, now = new Date()) {
       if (!(await claim.json()).length) continue;
     }
 
+    const recipients = members.filter(
+      (member) => !reminder.memberId || member.id === reminder.memberId,
+    );
+    const inbox = reminder.key ? await addToInbox(reminder, recipients) : [];
+
     const targets = subscriptions.filter(
       (subscription) => !reminder.memberId || subscription.member_id === reminder.memberId,
     );
-    const message = JSON.stringify({ title: reminder.title, body: reminder.body });
 
     for (const subscription of targets) {
+      const entry = inbox.find((row) => row.member_id === subscription.member_id);
+      const message = JSON.stringify({
+        title: reminder.title,
+        body: reminder.body,
+        tag: entry?.id,
+      });
       const response = await sendPush(subscription, message, env.vapid, fetcher);
       if (response.ok) sent += 1;
       // El mòbil ja no vol avisos, o ha reinstal·lat l'app.
@@ -300,6 +331,13 @@ export async function handle(request, env, fetcher = fetch, now = new Date()) {
       }
     }
   }
+  // Les novetats de fa més d'un mes ja no es mostren.
+  const limit = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  await fetcher(`${rest}/reminder_inbox?created_at=lt.${encodeURIComponent(limit)}`, {
+    method: 'DELETE',
+    headers,
+  });
+
   return json(200, { reminders: reminders.length, sent });
 }
 

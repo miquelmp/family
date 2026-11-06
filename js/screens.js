@@ -6,7 +6,9 @@ import {
   newEventLink,
   nextEvent,
   pendingTasks,
+  recentNews,
   toBuy,
+  unreadNews,
   usualByCategory,
   visibleTasks,
 } from './household.js';
@@ -119,6 +121,79 @@ const audience = (state, uid) =>
     ? 'Avisa només les persones marcades'
     : 'Avisa tothom';
 
+const newsTime = (item, today) => {
+  const date = new Date(item.created_at);
+  const day = eventDate({ starts_at: item.created_at });
+  return day === today
+    ? eventTime({ starts_at: item.created_at })
+    : new Intl.DateTimeFormat('ca', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'short' }).format(date);
+};
+
+const newsLines = (item) =>
+  item.body
+    .split('\n')
+    .map((line) => `<span>${escapeHtml(line)}</span>`)
+    .join('');
+
+function newsCard(state) {
+  const unread = unreadNews(state.inbox);
+  if (!unread.length) {
+    return state.inbox.length
+      ? '<button class="text-button text-button--start" data-action="show-news">Veure els avisos</button>'
+      : '';
+  }
+  const rows = unread
+    .map(
+      (item) => `
+        <li>
+          <button class="news" data-action="open-news" data-id="${escapeHtml(item.id)}" data-target="${escapeHtml(item.target)}">
+            <span class="news__dot" aria-hidden="true"></span>
+            <span class="news__main">
+              <strong>${escapeHtml(item.title)}</strong>
+              ${newsLines(item)}
+            </span>
+            <time>${escapeHtml(newsTime(item, state.today))}</time>
+          </button>
+        </li>`,
+    )
+    .join('');
+  return `
+    <section class="card card--news" aria-label="Novetats">
+      <div class="card__heading">
+        <h2 class="card__title">Novetats</h2>
+        <span class="news__count" aria-label="${unread.length} sense llegir">${unread.length}</span>
+      </div>
+      <ul>${rows}</ul>
+      <div class="news__actions">
+        <button class="text-button" data-action="read-all-news">Marca-ho tot com a llegit</button>
+        <button class="text-button" data-action="show-news">Veure'n més</button>
+      </div>
+    </section>`;
+}
+
+function newsSheet(state) {
+  const rows = recentNews(state.inbox, state.now)
+    .map(
+      (item) => `
+        <li class="news-row ${item.read_at ? 'news-row--read' : ''}">
+          <span class="news__main">
+            <strong>${escapeHtml(item.title)}</strong>
+            ${newsLines(item)}
+          </span>
+          <time>${escapeHtml(newsTime(item, state.today))}</time>
+        </li>`,
+    )
+    .join('');
+  return `
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="Avisos dels darrers 7 dies">
+      <div class="sheet__panel">
+        <h2>Darrers 7 dies</h2>
+        <ul class="sheet__scroll">${rows || '<li class="empty">No hi ha avisos.</li>'}</ul>
+        <button class="primary" data-action="close-sheet">Tanca</button>
+      </div>
+    </div>`;
+}
+
 function weatherSheet({ weather }) {
   const rows = weather.days
     .map(
@@ -145,6 +220,7 @@ function weatherSheet({ weather }) {
 function sheet(state) {
   if (!state.sheet) return '';
   if (state.sheet.type === 'weather') return weatherSheet(state);
+  if (state.sheet.type === 'news') return newsSheet(state);
   if (state.sheet.type === 'event') {
     const event = state.agenda.find((entry) => entry.uid === state.sheet.uid);
     if (!event) return '';
@@ -299,6 +375,8 @@ function todayContent(state) {
         ${members.map((member) => avatar(member)).join('')}
       </div>
     </header>
+
+    ${newsCard(state)}
 
     ${weatherCard(state)}
 

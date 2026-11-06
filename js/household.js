@@ -18,6 +18,17 @@ export const swipeTarget = (current, deltaX, deltaY) => {
   return SWIPE_TABS[index + (deltaX < 0 ? 1 : -1)] ?? null;
 };
 
+export const unreadNews = (inbox) =>
+  inbox.filter((item) => !item.read_at).sort((a, b) => b.created_at.localeCompare(a.created_at));
+
+/** Avisos dels darrers 7 dies, llegits o no, del més recent al més antic. */
+export const recentNews = (inbox, now = new Date()) => {
+  const limit = now.getTime() - 7 * 24 * 60 * 60 * 1000;
+  return inbox
+    .filter((item) => new Date(item.created_at).getTime() >= limit)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+};
+
 export const toBuy = (items) =>
   items.filter((item) => item.on_list).sort((a, b) => a.name.localeCompare(b.name, 'ca'));
 

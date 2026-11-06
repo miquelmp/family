@@ -13,10 +13,12 @@ import {
   pendingTasks,
   placeUrl,
   readPlace,
+  recentNews,
   readWeather,
   shoppingMessage,
   swipeTarget,
   toBuy,
+  unreadNews,
   usualByCategory,
   visibleTasks,
   weatherKind,
@@ -111,6 +113,17 @@ test('lliscar canvia de pantalla només si és clarament lateral', () => {
   assert.equal(swipeTarget('avui', -40, 0), null);
   assert.equal(swipeTarget('avui', -100, 80), null);
   assert.equal(swipeTarget('horari', -100, 0), null);
+});
+
+test('les novetats es separen entre pendents i darrers 7 dies', () => {
+  const now = new Date('2026-11-06T12:00:00Z');
+  const inbox = [
+    { id: 'a', created_at: '2026-11-06T07:07:00Z', read_at: null },
+    { id: 'b', created_at: '2026-11-05T19:07:00Z', read_at: '2026-11-05T20:00:00Z' },
+    { id: 'c', created_at: '2026-10-20T19:07:00Z', read_at: null },
+  ];
+  assert.deepEqual(unreadNews(inbox).map((item) => item.id), ['a', 'c']);
+  assert.deepEqual(recentNews(inbox, now).map((item) => item.id), ['a', 'b']);
 });
 
 test('el nom del lloc es tria de la resposta', () => {

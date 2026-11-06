@@ -79,9 +79,9 @@ self.addEventListener('fetch', (event) => {
 });
 
 self.addEventListener('push', (event) => {
-  const { title = 'Family', body = '' } = event.data?.json() ?? {};
+  const { title = 'Family', body = '', tag } = event.data?.json() ?? {};
   event.waitUntil(
-    self.registration.showNotification(title, { body, icon: 'icons/icon-192.png', lang: 'ca' }),
+    self.registration.showNotification(title, { body, tag, icon: 'icons/icon-192.png', lang: 'ca' }),
   );
 });
 

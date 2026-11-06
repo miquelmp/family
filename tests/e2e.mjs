@@ -175,14 +175,17 @@ const fakeSupabase = (scenario) => `
     members: scenario.members ?? [], weekly_lunches: [], lunch_overrides: [], menus: [],
     agenda_events: scenario.agenda ?? [], shopping_items: scenario.shopping ?? [], tasks: [],
     push_subscriptions: [], event_assignees: [], settings: scenario.settings ?? [],
+    reminder_inbox: scenario.inbox ?? [],
   };
   window.calls = [];
   const query = (name) => {
-    let action = 'select', payload, filters = [];
+    let action = 'select', payload, filters = [], inFilters = [];
     const run = async () => {
       window.calls.push([action, name, payload]);
       if (scenario.fail) return { data: null, error: { message: scenario.fail } };
-      const matches = (row) => filters.every(([field, value]) => row[field] === value);
+      const matches = (row) =>
+        filters.every(([field, value]) => row[field] === value) &&
+        inFilters.every(([field, values]) => values.includes(row[field]));
       const rows = tables[name];
       if (action === 'select') return { data: rows.filter(matches), error: null };
       if (action === 'insert') {
@@ -204,6 +207,7 @@ const fakeSupabase = (scenario) => `
       select() { return builder; },
       order() { return builder; },
       eq(field, value) { filters.push([field, value]); return builder; },
+      in(field, values) { inFilters.push([field, values]); return builder; },
       insert(row) { action = 'insert'; payload = row; return builder; },
       upsert(row) { action = 'upsert'; payload = row; return builder; },
       update(row) { action = 'update'; payload = row; return builder; },
@@ -620,6 +624,41 @@ async function checkSwipe() {
   await context.close();
 }
 
+async function checkNews() {
+  const made = new Date().toISOString();
+  const { page, context, errors } = await realMode({
+    session: session('una@example.com'),
+    members,
+    inbox: [
+      { id: 'n1', title: 'Tasques d\'avui', body: 'Regar', target: 'casa', created_at: made, read_at: null },
+      { id: 'n2', title: 'Avui', body: 'Línia 1\nLínia 2', target: 'setmana', created_at: made, read_at: null },
+    ],
+  });
+  const card = page.getByRole('region', { name: 'Novetats' });
+  await card.waitFor();
+  assert.equal(await page.locator('.news__count').innerText(), '2');
+  assert.equal(await page.locator('.news').count(), 2);
+
+  // Tocar-ne un el marca com a llegit i porta al seu lloc.
+  await page.locator('.news', { hasText: 'Regar' }).click();
+  await page.waitForFunction(() => location.hash === '#casa');
+  await page.waitForFunction(() => window.tables.reminder_inbox[0].read_at);
+  assert.equal(await page.evaluate(() => window.tables.reminder_inbox[1].read_at), null);
+
+  await page.click('a[href="#avui"]');
+  await page.locator('.news__count').waitFor();
+  assert.equal(await page.locator('.news__count').innerText(), '1');
+
+  // Marcar-ho tot deixa només l'accés a l'historial.
+  await page.getByRole('button', { name: 'Marca-ho tot com a llegit' }).click();
+  await card.waitFor({ state: 'detached' });
+  await page.getByRole('button', { name: 'Veure els avisos' }).click();
+  await page.getByRole('dialog', { name: 'Avisos dels darrers 7 dies' }).waitFor();
+  assert.equal(await page.locator('.news-row--read').count(), 2);
+  assert.deepEqual(errors, []);
+  await context.close();
+}
+
 async function checkOfflineShell() {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
@@ -683,6 +722,7 @@ await checkSmartThings();
 await checkGroupShare();
 await checkTablet();
 await checkSwipe();
+await checkNews();
 await checkOfflineShell();
 await checkUpdate();
 await screenshots();

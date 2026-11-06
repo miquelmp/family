@@ -41,6 +41,24 @@ export const demoData = (today) => ({
     ...everyWeekday('p4', [4, 5, 6, 7]),
   ],
   settings: [],
+  inbox: [
+    {
+      id: 'n1',
+      title: 'Tasques d\'avui',
+      body: 'Posar la rentadora',
+      target: 'casa',
+      created_at: madridInstant(today, '08:07'),
+      read_at: null,
+    },
+    {
+      id: 'n2',
+      title: 'Avui',
+      body: '09:30 Dentista\n18:15 Entrenament',
+      target: 'setmana',
+      created_at: madridInstant(today, '08:07'),
+      read_at: null,
+    },
+  ],
   overrides: [],
   assignees: [{ event_uid: 'a1', member_id: 'p3' }],
   menus: weekDates(today)

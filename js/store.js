@@ -34,6 +34,12 @@ export function createDemoStore(today) {
       if (dish) data.menus.push({ lunch_date, dish });
     },
 
+    async markRead(ids) {
+      for (const item of data.inbox) {
+        if (ids.includes(item.id)) item.read_at = now();
+      }
+    },
+
     async setAssignee(event_uid, member_id, assigned) {
       data.assignees = data.assignees.filter(
         (row) => !(row.event_uid === event_uid && row.member_id === member_id),
@@ -80,7 +86,7 @@ export function createSupabaseStore(client) {
 
   return {
     async load() {
-      const [members, weeklyLunches, overrides, menus, agenda, assignees, shopping, tasks, settings] = await Promise.all([
+      const [members, weeklyLunches, overrides, menus, agenda, assignees, shopping, tasks, settings, inbox] = await Promise.all([
         table('members').select('id, email, display_name, short_label, color, sort_order').order('sort_order'),
         table('weekly_lunches').select('*').order('valid_from'),
         table('lunch_overrides').select('*').order('lunch_date'),
@@ -90,6 +96,7 @@ export function createSupabaseStore(client) {
         table('shopping_items').select('*').order('name'),
         table('tasks').select('*').order('created_at'),
         table('settings').select('*').order('key'),
+        table('reminder_inbox').select('*').order('created_at'),
       ]);
       return {
         members: check(members),
@@ -102,6 +109,7 @@ export function createSupabaseStore(client) {
         tasks: check(tasks),
         // La configuració és opcional: sense ella, l'app funciona igualment.
         settings: settings.error ? [] : settings.data,
+        inbox: inbox.error ? [] : inbox.data,
       };
     },
 
@@ -127,6 +135,12 @@ export function createSupabaseStore(client) {
         dish
           ? await table('menus').upsert({ lunch_date, dish })
           : await table('menus').delete().eq('lunch_date', lunch_date),
+      );
+    },
+
+    async markRead(ids) {
+      check(
+        await table('reminder_inbox').update({ read_at: now() }).in('id', ids),
       );
     },
 

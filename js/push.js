@@ -23,6 +23,22 @@ export async function subscribeToPush(publicKey) {
   });
 }
 
+/**
+ * Treu del tauler del mòbil les notificacions ja llegides a l'app,
+ * i ajusta el número de la icona.
+ */
+export async function syncNotifications(unreadTags) {
+  if ('setAppBadge' in navigator) {
+    await navigator.setAppBadge(unreadTags.length).catch(() => {});
+  }
+  if (!('serviceWorker' in navigator)) return;
+  const registration = await navigator.serviceWorker.ready;
+  const shown = await registration.getNotifications();
+  for (const notification of shown) {
+    if (!unreadTags.includes(notification.tag)) notification.close();
+  }
+}
+
 export function subscriptionRow(subscription, memberId) {
   const { endpoint, keys } = subscription.toJSON();
   return { endpoint, member_id: memberId, p256dh: keys.p256dh, auth: keys.auth };

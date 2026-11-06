@@ -122,6 +122,7 @@ test('al vespre avisa de les cites de demà a cada membre', () => {
     title: 'Demà',
     body: 'Festa\n09:30 Dentista',
     memberId: 'm1',
+    target: 'setmana',
   });
   assert.equal(reminders[1].memberId, 'm2');
   assert.equal(reminders.length, 2);
@@ -198,6 +199,7 @@ const post = (secret, body) =>
 function fakeServer({ claimed = [], pushStatus = 201 } = {}) {
   const pushes = [];
   const deleted = [];
+  const inbox = [];
   const fetcher = async (url, options = {}) => {
     if (url.startsWith('https://push.test')) {
       pushes.push({ url, ...options });
@@ -217,13 +219,21 @@ function fakeServer({ claimed = [], pushStatus = 201 } = {}) {
     if (url.includes('/event_assignees')) return Response.json([]);
     if (url.includes('/agenda_events')) return Response.json(agenda);
     if (url.includes('/tasks')) return Response.json(tasks);
+    if (url.includes('/reminder_inbox') && options.method === 'DELETE') {
+      return new Response(null, { status: 204 });
+    }
+    if (url.includes('/reminder_inbox')) {
+      const rows = JSON.parse(options.body);
+      inbox.push(...rows);
+      return Response.json(rows.map((row, index) => ({ ...row, id: `${row.member_id}-${inbox.length}-${index}` })));
+    }
     if (url.includes('/sent_reminders')) {
       const { key } = JSON.parse(options.body);
       return Response.json(claimed.includes(key) ? [] : [{ key }]);
     }
     throw new Error(`inesperat: ${url}`);
   };
-  return { fetcher, pushes, deleted };
+  return { fetcher, pushes, deleted, inbox };
 }
 
 const morning = new Date('2026-11-05T07:07:00Z');
@@ -252,6 +262,27 @@ test('cada aviso arriba a qui toca, xifrat', async () => {
   ]);
   assert.equal(pushes[0].headers['content-encoding'], 'aes128gcm');
   assert.match(pushes[0].headers.authorization, /^vapid t=/);
+});
+
+test('cada aviso queda a les novetats de qui el rep', async () => {
+  const { fetcher, inbox, pushes } = fakeServer();
+  await handle(post('secret'), env, fetcher, morning);
+  assert.deepEqual(inbox.map((row) => [row.member_id, row.title, row.target]), [
+    ['m1', 'Avui', 'setmana'],
+    ['m2', 'Avui', 'setmana'],
+    ['m1', 'Tasques d\'avui', 'casa'],
+    ['m1', 'Tasques d\'avui', 'casa'],
+    ['m2', 'Tasques d\'avui', 'casa'],
+  ]);
+  const [first] = pushes;
+  const { tag } = JSON.parse(decrypt(Buffer.from(first.body), browser.keys, browser.auth));
+  assert.match(tag, /^m1-/);
+});
+
+test('l\'aviso de prova no queda a les novetats', async () => {
+  const { fetcher, inbox } = fakeServer();
+  await handle(post('secret', { test: true }), env, fetcher, morning);
+  assert.equal(inbox.length, 0);
 });
 
 test('un aviso ja enviat no es repeteix', async () => {

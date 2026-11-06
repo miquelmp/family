@@ -180,6 +180,44 @@ select pg_temp.expect_denied(
   'authenticated', '{"email":"membre@example.com"}',
   'update family.settings set value = ''x''');
 
+-- Cada membre només veu i marca les seves novetats.
+do $$
+declare
+  own uuid;
+  visible bigint;
+begin
+  select id into own from family.members where email = 'membre@example.com';
+  insert into family.reminder_inbox (member_id, title, body, target)
+    values (own, 'Avui', 'Cita', 'setmana');
+
+  perform set_config('request.jwt.claims', '{"email":"segon@example.com"}', true);
+  set local role authenticated;
+  select count(*) into visible from family.reminder_inbox;
+  update family.reminder_inbox set read_at = now();
+  reset role;
+  assert visible = 0, 'Un membre no ha de veure les novetats dels altres';
+  assert (select count(*) from family.reminder_inbox where read_at is not null) = 0,
+    'Un membre no ha de marcar les novetats dels altres';
+
+  perform set_config('request.jwt.claims', '{"email":"membre@example.com"}', true);
+  set local role authenticated;
+  select count(*) into visible from family.reminder_inbox;
+  update family.reminder_inbox set read_at = now();
+  reset role;
+  assert visible = 1, 'Un membre ha de veure les seves novetats';
+  assert (select count(*) from family.reminder_inbox where read_at is not null) = 1,
+    'Un membre ha de poder marcar les seves novetats';
+end;
+$$;
+
+select pg_temp.expect_denied(
+  'authenticated', '{"email":"membre@example.com"}',
+  'update family.reminder_inbox set title = ''x''');
+select pg_temp.expect_denied(
+  'authenticated', '{"email":"membre@example.com"}',
+  $sql$insert into family.reminder_inbox (member_id, title, body, target)
+       select id, 'x', 'x', 'casa' from family.members limit 1$sql$);
+
 -- No es poden duplicar productes, ni canviant majúscules.
 do $$
 begin
