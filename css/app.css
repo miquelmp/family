@@ -215,8 +215,9 @@ ul, ol { list-style: none; }
 .day {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 64px;
+  gap: 8px;
+  min-height: 48px;
+  padding: 2px 0;
   border-top: 1px solid var(--line);
 }
 .day:first-child { border-top: 0; }
@@ -230,14 +231,24 @@ ul, ol { list-style: none; }
 .day--today + .day { border-top: 0; }
 .day__date { width: 38px; flex: none; text-align: center; }
 .day__date small { display: block; font-size: 12px; font-weight: 600; }
-.day__date b { display: block; font-size: 19px; line-height: 1.15; }
+.day__date b { display: block; font-size: 17px; line-height: 1.1; }
 .day__main { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; }
 .day__main span { display: block; }
-.together { display: block; color: #0F766E; font-size: 14px; font-weight: 700; }
+.together {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: #D8F0E8;
+  color: #0B5F52;
+  font-size: 11px;
+  font-weight: 800;
+  vertical-align: middle;
+}
 .day__people { display: flex; flex: none; }
 
 .avatar-button {
-  width: 34px;
+  width: 32px;
   height: 44px;
   padding: 0;
   border: 0;
@@ -450,8 +461,13 @@ ul, ol { list-style: none; }
 }
 
 .dish-link {
-  display: block;
+  display: inline-block;
   min-height: 28px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
   padding: 2px 0;
   border: 0;
   background: transparent;

@@ -458,8 +458,7 @@ function weekContent(state) {
             <b>${Number(date.slice(8))}</b>
           </span>
           <span class="day__main">
-            ${together ? '<strong class="together">Tots junts</strong>' : ''}
-            <button class="dish-link" data-action="edit-menu" data-date="${date}">
+            ${together ? '<strong class="together">Tots junts</strong>' : ''}<button class="dish-link" data-action="edit-menu" data-date="${date}">
               ${escapeHtml(dish || 'Afegeix menú')}
             </button>
             ${events
@@ -493,7 +492,6 @@ function weekContent(state) {
           <button aria-label="Setmana següent" data-action="change-week" data-delta="1">&rsaquo;</button>
         </div>
       </div>
-      <p class="hint">Toca una persona per a un canvi puntual.</p>
       <ol class="days">${rows}</ol>
     </section>
     ${nextEventCard(state)}`;
