@@ -32,13 +32,25 @@ export const recentNews = (inbox, now = new Date()) => {
 export const toBuy = (items) =>
   items.filter((item) => item.on_list).sort((a, b) => a.name.localeCompare(b.name, 'ca'));
 
+const CATEGORY_ORDER = ['Rebost', 'Begudes', 'Neteja', 'Paper'];
+
+const categoryRank = (category) => {
+  const rank = CATEGORY_ORDER.indexOf(category);
+  return rank === -1 ? CATEGORY_ORDER.length : rank;
+};
+
+const byProductOrder = (a, b) =>
+  (a.sort_order ?? 100) - (b.sort_order ?? 100) || a.name.localeCompare(b.name, 'ca');
+
 export const usualByCategory = (items) => {
   const groups = new Map();
   for (const item of items.filter((entry) => entry.is_usual)) {
     const category = item.category ?? 'Altres';
     groups.set(category, [...(groups.get(category) ?? []), item]);
   }
-  return [...groups].map(([category, products]) => ({ category, products }));
+  return [...groups]
+    .map(([category, products]) => ({ category, products: products.sort(byProductOrder) }))
+    .sort((a, b) => categoryRank(a.category) - categoryRank(b.category));
 };
 
 export const findProduct = (items, name) => {

@@ -45,6 +45,21 @@ test('els productes es comparen sense majúscules ni espais', () => {
   assert.equal(findProduct(items, 'Arròs'), undefined);
 });
 
+test('categories i productes segueixen l\'ordre definit', () => {
+  const products = [
+    { name: 'Coca-cola', category: 'Begudes', is_usual: true, sort_order: 6 },
+    { name: 'Cafè', category: 'Begudes', is_usual: true, sort_order: 1 },
+    { name: 'Nou', category: 'Begudes', is_usual: true },
+    { name: 'Detergent', category: 'Neteja', is_usual: true },
+    { name: 'Oli', category: 'Rebost', is_usual: true },
+    { name: 'Tovallons', category: 'Paper', is_usual: true },
+    { name: 'Piles', category: 'Altres', is_usual: true },
+  ];
+  const groups = usualByCategory(products);
+  assert.deepEqual(groups.map((group) => group.category), ['Rebost', 'Begudes', 'Neteja', 'Paper', 'Altres']);
+  assert.deepEqual(groups[1].products.map((item) => item.name), ['Cafè', 'Coca-cola', 'Nou']);
+});
+
 test('els habituals s\'agrupen per categoria', () => {
   assert.deepEqual(usualByCategory(items).map((group) => group.category), ['Rebost', 'Begudes']);
 });
