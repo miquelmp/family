@@ -57,7 +57,28 @@ async function checkDemo(width) {
   // Marcar tothom fa aparèixer "Tots junts".
   while (await page.locator('.lunch-toggle--away').count()) {
     await page.locator('.lunch-toggle--away').first().click();
+    await page.getByRole('button', { name: /^A casa a les 14:30$/ }).click();
   }
+  assert.equal(await page.locator('.card--lunch h2').innerText(), 'Tots junts');
+
+  // Una hora diferent es veu al botó i trenca el "Tots junts".
+  await page.locator('.lunch-toggle').first().click();
+  await page.getByRole('dialog').waitFor();
+  await page.fill('#lunch-time', '15:30');
+  await page.getByRole('button', { name: 'Desa' }).click();
+  await page.waitForFunction(() => document.querySelector('.card--lunch h2').innerText === 'Tots a casa');
+  assert.equal(await page.locator('.lunch-time').first().innerText(), '15:30');
+  assert.match(await page.locator('.lunch-times').innerText(), /14:30: .* · 15:30: P1/);
+  assert.ok(await noSideScroll(page), `scroll horitzontal amb l'hora (${width})`);
+
+  // Tornar a l'hora habitual.
+  await page.locator('.lunch-toggle').first().click();
+  await page.getByRole('button', { name: /^A casa a les 14:30$/ }).click();
+  await page.waitForFunction(() => document.querySelector('.card--lunch h2').innerText === 'Tots junts');
+
+  // Cancel·lar no canvia res.
+  await page.locator('.lunch-toggle').first().click();
+  await page.getByRole('button', { name: 'Cancel·la' }).click();
   assert.equal(await page.locator('.card--lunch h2').innerText(), 'Tots junts');
 
   // La meteo obre la previsió, i tocar fora la tanca.
@@ -87,6 +108,7 @@ async function checkDemo(width) {
   assert.ok(await noSideScroll(page), `scroll horitzontal a Setmana (${width})`);
   assert.equal(await page.locator('.day--today .together').count(), 1);
   await page.locator('.day--today .avatar-button').first().click();
+  await page.getByRole('button', { name: 'No hi dino' }).click();
   await page.waitForFunction(() => !document.querySelector('.day--today .together'));
 
   // Des de Setmana, la cita s'assigna en una finestra.
@@ -109,6 +131,9 @@ async function checkDemo(width) {
   await page.waitForSelector('.grid');
   assert.ok(await noSideScroll(page), `scroll horitzontal a Setmana tipus (${width})`);
   await page.locator('.grid__cell--away').first().click();
+  await page.getByText('S\'aplica a partir d\'avui.').waitFor();
+  await page.getByRole('button', { name: /^A casa a les 14:30$/ }).click();
+  await page.waitForFunction(() => !document.querySelector('.sheet'));
   await page.click('a[href="#setmana"]');
   await page.waitForSelector('.days');
   assert.equal(await page.locator('.day--today .together').count(), 0);
@@ -309,10 +334,17 @@ async function checkRealData() {
 
   // Dinar: un toc desa un canvi puntual per a aquesta data.
   await page.locator('.lunch-toggle').first().click();
+  await page.getByRole('button', { name: /^A casa a les 14:30$/ }).click();
   await page.waitForFunction(() => window.tables.lunch_overrides.length === 1);
   assert.deepEqual(await page.evaluate(() => window.tables.lunch_overrides), [
-    { member_id: 'm1', lunch_date: today, at_home: true },
+    { member_id: 'm1', lunch_date: today, at_home: true, lunch_time: null },
   ]);
+
+  // Una altra hora es desa amb el canvi puntual.
+  await page.locator('.lunch-toggle').first().click();
+  await page.fill('#lunch-time', '13:15');
+  await page.getByRole('button', { name: 'Desa' }).click();
+  await page.waitForFunction(() => window.tables.lunch_overrides[0].lunch_time === '13:15');
   await page.waitForFunction(() => document.querySelector('.card--lunch h2').innerText === 'Una persona a taula');
 
   // Assignar una cita real desa el membre, i treure'l l'esborra.
@@ -328,10 +360,13 @@ async function checkRealData() {
   await page.goto(`${BASE_URL}#horari`);
   await page.waitForSelector('.grid');
   await page.locator('.grid__cell--away').first().click();
+  await page.fill('#lunch-time', '15:00');
+  await page.getByRole('button', { name: 'Desa' }).click();
   await page.waitForFunction(() => window.tables.weekly_lunches.length === 1);
   assert.deepEqual(await page.evaluate(() => window.tables.weekly_lunches), [
-    { member_id: 'm1', weekday: 1, valid_from: today, at_home: true },
+    { member_id: 'm1', weekday: 1, valid_from: today, at_home: true, lunch_time: '15:00' },
   ]);
+  assert.equal(await page.locator('.grid__time').first().innerText(), '15:00');
 
   // Compra: un producte puntual comprat desapareix; un habitual es conserva.
   await page.click('a[href="#setmana"]');
@@ -396,6 +431,7 @@ async function checkOfflineData() {
   await page.locator('.banner--offline').waitFor();
   assert.ok(await page.locator('.lunch-toggle').first().isVisible());
   await page.locator('.lunch-toggle').first().click();
+  await page.getByRole('button', { name: 'No hi dino' }).click();
   await page.locator('.notice').waitFor();
   assert.equal(await page.evaluate(() => window.tables.lunch_overrides.length), 0);
   await context.close();

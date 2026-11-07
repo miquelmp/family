@@ -47,33 +47,52 @@ export function weekDates(isoDate) {
   return Array.from({ length: 7 }, (_, index) => addDays(monday, index));
 }
 
+export const DEFAULT_LUNCH_TIME = '14:30';
+
+/** Les hores es guarden com a 14:30:00; aquí es fan servir com a 14:30. */
+const shortTime = (value) => (value ? value.slice(0, 5) : null);
+
 /**
- * Indica si un membre dina a casa una data.
- * Prioritat: canvi puntual, setmana tipus vigent aquell dia, i si no n'hi ha cap, no.
+ * Estat del dinar d'un membre una data: { atHome, time }.
+ * time és null quan dina a l'hora habitual o no dina a casa.
+ * Prioritat: canvi puntual, setmana tipus vigent aquell dia, i si no n'hi ha cap, fora.
  */
-export function isAtHome(memberId, isoDate, weeklyRows, overrides) {
+export function lunchStatus(memberId, isoDate, weeklyRows, overrides) {
   const override = overrides.find(
     (row) => row.member_id === memberId && row.lunch_date === isoDate,
   );
-  if (override) return override.at_home;
-
   const weekday = isoWeekday(isoDate);
-  const current = weeklyRows
-    .filter(
-      (row) =>
-        row.member_id === memberId &&
-        row.weekday === weekday &&
-        row.valid_from <= isoDate,
-    )
-    .sort((a, b) => b.valid_from.localeCompare(a.valid_from))[0];
+  const row =
+    override ??
+    weeklyRows
+      .filter(
+        (entry) =>
+          entry.member_id === memberId &&
+          entry.weekday === weekday &&
+          entry.valid_from <= isoDate,
+      )
+      .sort((a, b) => b.valid_from.localeCompare(a.valid_from))[0];
 
-  return current ? current.at_home : false;
+  if (!row?.at_home) return { atHome: false, time: null };
+  return { atHome: true, time: shortTime(row.lunch_time) };
 }
 
-/** "Tots junts" només apareix si hi ha membres i tots dinen a casa. */
-export function allTogether(memberIds, isoDate, weeklyRows, overrides) {
+export const isAtHome = (memberId, isoDate, weeklyRows, overrides) =>
+  lunchStatus(memberId, isoDate, weeklyRows, overrides).atHome;
+
+/** Tothom dina a casa, a l'hora que sigui. */
+export function allHome(memberIds, isoDate, weeklyRows, overrides) {
   return (
     memberIds.length > 0 &&
     memberIds.every((id) => isAtHome(id, isoDate, weeklyRows, overrides))
   );
+}
+
+/** "Tots junts": tothom dina a casa i a la mateixa hora. */
+export function allTogether(memberIds, isoDate, weeklyRows, overrides, defaultTime = DEFAULT_LUNCH_TIME) {
+  if (!allHome(memberIds, isoDate, weeklyRows, overrides)) return false;
+  const times = new Set(
+    memberIds.map((id) => lunchStatus(id, isoDate, weeklyRows, overrides).time ?? defaultTime),
+  );
+  return times.size === 1;
 }

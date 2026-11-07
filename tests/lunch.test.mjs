@@ -3,9 +3,11 @@ import { test } from 'node:test';
 
 import {
   addDays,
+  allHome,
   allTogether,
   isAtHome,
   isoWeekday,
+  lunchStatus,
   madridInstant,
   todayInMadrid,
   weekDates,
@@ -56,6 +58,31 @@ test('un canvi puntual es manté encara que canviï la setmana tipus', () => {
 
 test('sense dades, el membre no consta a casa', () => {
   assert.equal(isAtHome('c', '2026-11-04', weekly, []), false);
+});
+
+test('cada membre pot tenir la seva hora de dinar', () => {
+  const rows = [
+    { member_id: 'a', weekday: 3, valid_from: '2026-01-01', at_home: true, lunch_time: '15:30:00' },
+    { member_id: 'b', weekday: 3, valid_from: '2026-01-01', at_home: true, lunch_time: null },
+  ];
+  assert.deepEqual(lunchStatus('a', '2026-11-04', rows, []), { atHome: true, time: '15:30' });
+  assert.deepEqual(lunchStatus('b', '2026-11-04', rows, []), { atHome: true, time: null });
+  assert.deepEqual(lunchStatus('c', '2026-11-04', rows, []), { atHome: false, time: null });
+
+  const overrides = [{ member_id: 'b', lunch_date: '2026-11-04', at_home: true, lunch_time: '13:00' }];
+  assert.equal(lunchStatus('b', '2026-11-04', rows, overrides).time, '13:00');
+  assert.equal(lunchStatus('b', '2026-11-11', rows, overrides).time, null);
+});
+
+test('Tots junts necessita la mateixa hora; si no, és Tots a casa', () => {
+  const rows = [
+    { member_id: 'a', weekday: 3, valid_from: '2026-01-01', at_home: true, lunch_time: '15:30' },
+    { member_id: 'b', weekday: 3, valid_from: '2026-01-01', at_home: true, lunch_time: null },
+  ];
+  assert.equal(allHome(['a', 'b'], '2026-11-04', rows, []), true);
+  assert.equal(allTogether(['a', 'b'], '2026-11-04', rows, []), false);
+  // Una hora igual a la de la família compta com la mateixa.
+  assert.equal(allTogether(['a', 'b'], '2026-11-04', rows, [], '15:30'), true);
 });
 
 test('Tots junts només si tots dinen a casa', () => {

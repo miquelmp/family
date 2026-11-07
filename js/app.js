@@ -18,6 +18,7 @@ import {
   syncNotifications,
 } from './push.js';
 import {
+  familyLunchTime,
   dashboardScreen,
   errorScreen,
   homeScreen,
@@ -271,11 +272,29 @@ function exportData() {
 
 const isTrue = (value) => value === 'true';
 
+/** Desa el dinar triat a la finestra: d'un dia concret o de la setmana tipus. */
+function saveLunch(atHome, time) {
+  const { member, date, weekday } = state.sheet;
+  // L'hora habitual es desa buida, així segueix la de la família si mai canvia.
+  const lunchTime = atHome && time && time !== familyLunchTime(state) ? time : null;
+  state.sheet = null;
+  return change(() =>
+    date
+      ? store.setOverride(member, date, atHome, lunchTime)
+      : store.setWeekly(member, Number(weekday), state.today, atHome, lunchTime),
+  );
+}
+
 const ACTIONS = {
-  'toggle-lunch': ({ member, date, next }) =>
-    change(() => store.setOverride(member, date, isTrue(next))),
-  'toggle-weekly': ({ member, weekday, next }) =>
-    change(() => store.setWeekly(member, Number(weekday), state.today, isTrue(next))),
+  'open-lunch': ({ member, date }) => {
+    state.sheet = { type: 'lunch', member, date };
+    render();
+  },
+  'open-weekly': ({ member, weekday }) => {
+    state.sheet = { type: 'lunch', member, weekday };
+    render();
+  },
+  'set-lunch': ({ mode }) => saveLunch(mode === 'usual', null),
   'toggle-assignee': async ({ event, member, next }) => {
     await change(() => store.setAssignee(event, member, isTrue(next)));
     render();
@@ -363,6 +382,10 @@ root.addEventListener('click', (event) => {
 root.addEventListener('submit', (event) => {
   event.preventDefault();
   const { form: name } = event.target.dataset;
+  if (name === 'lunch-time') {
+    saveLunch(true, new FormData(event.target).get('time'));
+    return;
+  }
   const data = new FormData(event.target);
   const { dataset } = event.target;
   state.sheet = null;

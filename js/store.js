@@ -14,19 +14,19 @@ export function createDemoStore(today) {
     load: async () => structuredClone(data),
     subscribe: () => () => {},
 
-    async setOverride(member_id, lunch_date, at_home) {
+    async setOverride(member_id, lunch_date, at_home, lunch_time = null) {
       data.overrides = data.overrides.filter(
         (row) => !(row.member_id === member_id && row.lunch_date === lunch_date),
       );
-      data.overrides.push({ member_id, lunch_date, at_home });
+      data.overrides.push({ member_id, lunch_date, at_home, lunch_time });
     },
 
-    async setWeekly(member_id, weekday, valid_from, at_home) {
+    async setWeekly(member_id, weekday, valid_from, at_home, lunch_time = null) {
       data.weeklyLunches = data.weeklyLunches.filter(
         (row) =>
           !(row.member_id === member_id && row.weekday === weekday && row.valid_from === valid_from),
       );
-      data.weeklyLunches.push({ member_id, weekday, valid_from, at_home });
+      data.weeklyLunches.push({ member_id, weekday, valid_from, at_home, lunch_time });
     },
 
     async setMenu(lunch_date, dish) {
@@ -122,12 +122,16 @@ export function createSupabaseStore(client) {
       return () => client.removeChannel(channel);
     },
 
-    async setOverride(member_id, lunch_date, at_home) {
-      check(await table('lunch_overrides').upsert({ member_id, lunch_date, at_home }));
+    async setOverride(member_id, lunch_date, at_home, lunch_time = null) {
+      check(
+        await table('lunch_overrides').upsert({ member_id, lunch_date, at_home, lunch_time }),
+      );
     },
 
-    async setWeekly(member_id, weekday, valid_from, at_home) {
-      check(await table('weekly_lunches').upsert({ member_id, weekday, valid_from, at_home }));
+    async setWeekly(member_id, weekday, valid_from, at_home, lunch_time = null) {
+      check(
+        await table('weekly_lunches').upsert({ member_id, weekday, valid_from, at_home, lunch_time }),
+      );
     },
 
     async setMenu(lunch_date, dish) {

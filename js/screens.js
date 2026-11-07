@@ -12,7 +12,16 @@ import {
   usualByCategory,
   visibleTasks,
 } from './household.js';
-import { addDays, allTogether, isAtHome, isoWeekday, weekDates } from './lunch.js';
+import {
+  DEFAULT_LUNCH_TIME,
+  addDays,
+  allHome,
+  allTogether,
+  isAtHome,
+  isoWeekday,
+  lunchStatus,
+  weekDates,
+} from './lunch.js';
 import { APP_VERSION } from './version.js';
 
 export function escapeHtml(value) {
@@ -50,6 +59,7 @@ const TABS = [
 ];
 
 const WEEKDAYS = ['Dl', 'Dt', 'Dc', 'Dj', 'Dv', 'Ds', 'Dg'];
+const WEEKDAY_NAMES = ['dilluns', 'dimarts', 'dimecres', 'dijous', 'divendres', 'dissabte', 'diumenge'];
 
 const formatDate = (isoDate, options) =>
   new Intl.DateTimeFormat('ca', { ...options, timeZone: 'UTC' }).format(
@@ -221,6 +231,7 @@ function sheet(state) {
   if (!state.sheet) return '';
   if (state.sheet.type === 'weather') return weatherSheet(state);
   if (state.sheet.type === 'news') return newsSheet(state);
+  if (state.sheet.type === 'lunch') return lunchSheet(state);
   if (state.sheet.type === 'event') {
     const event = state.agenda.find((entry) => entry.uid === state.sheet.uid);
     if (!event) return '';
@@ -319,25 +330,90 @@ function weatherCard(state) {
     </section>`;
 }
 
-function lunchSummary(count, total) {
-  if (count === 0) return 'Ningú a taula';
-  if (count === total) return 'Tots junts';
-  return count === 1 ? 'Una persona a taula' : `${count} persones a taula`;
+export const familyLunchTime = (state) =>
+  state.settings?.find((row) => row.key === 'lunch_time')?.value?.slice(0, 5) ?? DEFAULT_LUNCH_TIME;
+
+const statusOn = (state, memberId, date) =>
+  lunchStatus(memberId, date, state.weeklyLunches, state.overrides);
+
+function lunchSummary(state, date) {
+  const ids = state.members.map((member) => member.id);
+  const home = state.members.filter((member) => statusOn(state, member.id, date).atHome);
+  if (!home.length) return 'Ningú a taula';
+  if (allTogether(ids, date, state.weeklyLunches, state.overrides, familyLunchTime(state))) {
+    return 'Tots junts';
+  }
+  if (allHome(ids, date, state.weeklyLunches, state.overrides)) return 'Tots a casa';
+  return home.length === 1 ? 'Una persona a taula' : `${home.length} persones a taula`;
+}
+
+/** Qui dina a cada hora, per exemple "14:30: Mo, Mi · 15:30: MJ". */
+function lunchTimes(state, date) {
+  const usual = familyLunchTime(state);
+  const groups = new Map();
+  for (const member of state.members) {
+    const status = statusOn(state, member.id, date);
+    if (!status.atHome) continue;
+    const time = status.time ?? usual;
+    groups.set(time, [...(groups.get(time) ?? []), member.short_label]);
+  }
+  return [...groups]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([time, labels]) => `${time}: ${labels.join(', ')}`)
+    .join(' · ');
 }
 
 function lunchButtons(state, date) {
   return state.members
     .map((member) => {
-      const atHome = isAtHome(member.id, date, state.weeklyLunches, state.overrides);
+      const { atHome, time } = statusOn(state, member.id, date);
       const style = atHome ? `style="background:${escapeHtml(member.color)}"` : '';
       return `
         <button class="lunch-toggle ${atHome ? '' : 'lunch-toggle--away'}" ${style}
-          aria-pressed="${atHome}" data-action="toggle-lunch"
-          data-member="${escapeHtml(member.id)}" data-date="${date}" data-next="${!atHome}">
+          aria-label="${escapeHtml(member.display_name)}: ${atHome ? `a casa${time ? ` a les ${time}` : ''}` : 'no hi dina'}"
+          data-action="open-lunch" data-member="${escapeHtml(member.id)}" data-date="${date}">
           ${escapeHtml(member.display_name)}
+          ${time ? `<span class="lunch-time">${escapeHtml(time)}</span>` : ''}
         </button>`;
     })
     .join('');
+}
+
+function lunchSheet(state) {
+  const { member: memberId, date, weekday } = state.sheet;
+  const member = state.members.find((entry) => entry.id === memberId);
+  if (!member) return '';
+  const usual = familyLunchTime(state);
+  const forDate = date ?? addDays(state.today, ((Number(weekday) - isoWeekday(state.today)) + 7) % 7);
+  const status = date
+    ? statusOn(state, memberId, date)
+    : lunchStatus(memberId, forDate, state.weeklyLunches, []);
+  const when = date
+    ? formatDate(date, { weekday: 'long', day: 'numeric', month: 'long' })
+    : `cada ${WEEKDAY_NAMES[Number(weekday) - 1]}`;
+  const current = status.atHome ? (status.time ? 'other' : 'usual') : 'away';
+  const option = (mode, label) => `
+    <button class="choice ${current === mode ? 'choice--on' : ''}" aria-pressed="${current === mode}"
+      data-action="set-lunch" data-mode="${mode}">${label}</button>`;
+  return `
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="Dinar de ${escapeHtml(member.display_name)}">
+      <div class="sheet__panel">
+        <h2>${escapeHtml(member.display_name)}</h2>
+        <p class="hint">${escapeHtml(when)}</p>
+        ${option('usual', `A casa a les ${escapeHtml(usual)}`)}
+        <form class="choice choice--form ${current === 'other' ? 'choice--on' : ''}" data-form="lunch-time">
+          <label for="lunch-time">A casa a una altra hora</label>
+          <span class="choice__row">
+            <input id="lunch-time" name="time" type="time" step="300" required
+              value="${escapeHtml(status.time ?? '')}">
+            <button class="secondary">Desa</button>
+          </span>
+        </form>
+        ${option('away', 'No hi dino')}
+        ${date ? '' : '<p class="hint">S\'aplica a partir d\'avui.</p>'}
+        <button class="text-button" data-action="close-sheet">Cancel·la</button>
+      </div>
+    </div>`;
 }
 
 function agendaRows(state, events) {
@@ -357,10 +433,8 @@ function agendaRows(state, events) {
 }
 
 function todayContent(state) {
-  const { today, members, weeklyLunches, overrides, agenda } = state;
-  const atHomeCount = members.filter((member) =>
-    isAtHome(member.id, today, weeklyLunches, overrides),
-  ).length;
+  const { today, members, agenda } = state;
+  const times = lunchTimes(state, today);
   const weekday = formatDate(today, { weekday: 'long' });
   const events = eventsOn(agenda, today);
   const dish = dishOn(state, today);
@@ -384,7 +458,8 @@ function todayContent(state) {
       <div class="card__top">
         <div>
           <p class="eyebrow">Dinar d'avui</p>
-          <h2>${lunchSummary(atHomeCount, members.length)}</h2>
+          <h2>${lunchSummary(state, today)}</h2>
+          ${times ? `<p class="lunch-times">${escapeHtml(times)}</p>` : ''}
         </div>
         <button class="dish" data-action="edit-menu" data-date="${today}">
           ${escapeHtml(dish || 'Afegeix el menú')}
@@ -436,18 +511,19 @@ function weekContent(state) {
 
   const rows = dates
     .map((date, index) => {
-      const together = allTogether(memberIds, date, weeklyLunches, overrides);
+      const together = allTogether(memberIds, date, weeklyLunches, overrides, familyLunchTime(state));
+      const home = !together && allHome(memberIds, date, weeklyLunches, overrides);
       const dish = dishOn(state, date);
       const events = eventsOn(state.agenda, date);
       const people = members
         .map((member) => {
-          const present = isAtHome(member.id, date, weeklyLunches, overrides);
+          const { atHome: present, time } = statusOn(state, member.id, date);
           return `
             <button class="avatar-button" aria-pressed="${present}"
-              aria-label="${escapeHtml(member.display_name)} (${escapeHtml(member.short_label)}), ${date}"
-              data-action="toggle-lunch" data-member="${escapeHtml(member.id)}"
-              data-date="${date}" data-next="${!present}">
+              aria-label="${escapeHtml(member.display_name)} (${escapeHtml(member.short_label)}), ${date}${time ? `, ${time}` : ''}"
+              data-action="open-lunch" data-member="${escapeHtml(member.id)}" data-date="${date}">
               ${avatar(member, { size: 'sm', present })}
+              ${time ? `<span class="avatar-time">${escapeHtml(time)}</span>` : ''}
             </button>`;
         })
         .join('');
@@ -458,7 +534,7 @@ function weekContent(state) {
             <b>${Number(date.slice(8))}</b>
           </span>
           <span class="day__main">
-            ${together ? '<strong class="together">Tots junts</strong>' : ''}<button class="dish-link" data-action="edit-menu" data-date="${date}">
+            ${together ? '<strong class="together">Tots junts</strong>' : ''}${home ? '<strong class="together together--apart">Tots a casa</strong>' : ''}<button class="dish-link" data-action="edit-menu" data-date="${date}">
               ${escapeHtml(dish || 'Afegeix menú')}
             </button>
             ${events
@@ -507,14 +583,13 @@ export function scheduleScreen(state) {
       const cells = WEEKDAYS.map((day, index) => {
         const weekday = index + 1;
         const date = addDays(today, ((weekday - isoWeekday(today)) + 7) % 7);
-        const atHome = isAtHome(member.id, date, weeklyLunches, []);
+        const { atHome, time } = lunchStatus(member.id, date, weeklyLunches, []);
         const style = atHome ? `style="background:${escapeHtml(member.color)}"` : '';
         return `
           <button class="grid__cell ${atHome ? '' : 'grid__cell--away'}" ${style}
-            aria-pressed="${atHome}" aria-label="${escapeHtml(member.display_name)}, ${day}"
-            data-action="toggle-weekly" data-member="${escapeHtml(member.id)}"
-            data-weekday="${weekday}" data-next="${!atHome}">
-            ${atHome ? icon(ICONS.check, 16) : ''}
+            aria-pressed="${atHome}" aria-label="${escapeHtml(member.display_name)}, ${day}${time ? `, ${time}` : ''}"
+            data-action="open-weekly" data-member="${escapeHtml(member.id)}" data-weekday="${weekday}">
+            ${time ? `<span class="grid__time">${escapeHtml(time)}</span>` : atHome ? icon(ICONS.check, 16) : ''}
           </button>`;
       }).join('');
       return `<span class="grid__name">${avatar(member, { size: 'sm' })}</span>${cells}`;
