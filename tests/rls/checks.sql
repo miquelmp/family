@@ -170,7 +170,7 @@ begin
 
   perform set_config('request.jwt.claims', '{"email":"segon@example.com"}', true);
   set local role authenticated;
-  select count(*) into visible from family.settings;
+  select count(*) into visible from family.settings where key = 'prova';
   reset role;
   assert visible = 1, 'Un membre ha de veure la configuració';
 end;
